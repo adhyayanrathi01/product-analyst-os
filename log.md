@@ -160,3 +160,65 @@ harness has no official connector to lean on.
 
 **Verified.** `bash -n` clean, guardrails 19/19, check-output 13/13, `setup.sh --check`
 exit 0, zero em dashes, zero banned words outside `docs/`.
+
+---
+
+## 2026-09-09, portable protection, first commit, and the dry run
+
+**Protection added.** `setup.sh --protect` / `--unprotect` chmod 24 rule files, plus a
+git pre-commit hook that refuses commits touching protected paths without
+`PAOS_ALLOW_PROTECTED=1`. Deliberately not a Codex-specific hook: one filesystem
+mechanism every harness sees beats one guard per vendor API. Protection is a toggle,
+not a setup step, because `knowledge-base/` must stay writable until the user has
+filled it in. `evals/test-protection.sh` covers 24 cases including that execute bits
+survive both operations. Honest limit, stated in the README: `chmod` is undone by
+another `chmod`. It converts a silent successful write into a visible failed one.
+
+**First commit.** `91b8943` on `main`, 50 files. The pre-commit hook cannot be wired
+before the initial commit, because that commit necessarily touches every protected file.
+
+**Dry run, and it is the most useful thing built so far.** Everything before it tested
+structure: files exist, scripts parse, guards block. Nothing had tested whether an agent
+following these skills produces a good report. A fixture world (`evals/fixtures/nimbus/`,
+a filled knowledge base, two captured schemas, canned query results) plus three scenarios
+run end to end.
+
+**The three reports were good.** S-2's trap worked: signups looked doubled at 1,188 to
+2,401 rows, but grew 12.1% at customer grain, with 1,102 demo accounts from a sales push
+explaining the gap. S-3's C-11 refusal actually fired, and stayed useful by answering at
+account grain on a confirmed key. C-07 held: an instruction-shaped account name in the
+fixture data was quoted and ignored rather than obeyed.
+
+**The process was not good, and that is the finding.** Two verified directly:
+
+- `evals/check-output.sh` passes a report with a **fabricated number and no query at
+  all**, exit 0, one warning. C-05 is the repo's central promise and its gate only warns.
+  A probe naming five exclusion rule ids without applying any of them also passes clean,
+  because the check tests for prose about exclusions rather than their application.
+  `analyze-backend` specifies the grep that would catch this; the script never
+  implemented it.
+- `knowledge-base/entities.md:144` E-8 reads `churned_at > <window_end>` beneath a note
+  saying "do not drop churned accounts from historical windows". It drops exactly those.
+  `window_start` is correct. A real logic bug in the example every user will copy.
+
+**Structural problems found.**
+
+- Hook enforcement is conditional on `$CLAUDE_PROJECT_DIR` resolving to this repo. When a
+  session root is the parent directory, no settings load and no hook runs. Observed twice,
+  once by the dry-run agent writing seven files into a protected path with no prompt, and
+  once during the original build. The only real enforcement depends on a fact the repo
+  cannot observe.
+- CHARTER C-12 forbids the agent writing under `evals/`, but building and running evals
+  requires exactly that. A compliant agent refuses to test its own repo.
+- Every source ships `blocked` and both analyze skills refuse non-`ready` sources, so as
+  shipped zero analyses can run and there is no fixture mode. Every scenario needed a
+  registry override.
+
+**The verdict worth keeping.** A PM would trust those three reports. They would not trust
+the process, because the gate cannot separate a good report from a confidently wrong one.
+And an agent will follow this contract for about three questions: eight files read before
+the first number, roughly 60% of each 180-line report mandated repetition, the same
+disclosure in all three reports changing nothing in any. The contract is not too strict,
+it is too uniformly strict. The same cost applies to "how many accounts signed up" as to a
+cross-source cohort analysis. The first thing an agent drops under that load is re-reading
+`entities.md`, which is the one omission that silently corrupts every number.
