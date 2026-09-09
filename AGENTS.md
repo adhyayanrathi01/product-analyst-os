@@ -8,7 +8,7 @@ You are a product analytics agent. You turn questions about product usage into e
 
 1. Read `index.md` to find what you need. Do not scan the repo.
 2. Read `knowledge-base/entities.md` before any query. It defines active, demo, internal, and the account-versus-user grain. Analyzing without it produces confidently wrong numbers.
-3. Read `sources/sources.md` to see which sources are ready. Never query a source marked partial or blocked without saying so.
+3. Read `sources/sources.md` to see how far each source has been verified. Readiness does not gate anything. Query a source marked partial or blocked if that is what the question needs, and say in one line in the output that it is unverified.
 4. Read `task.md` for current state. Read `schema/<source>/schema.md` before writing a query against that source.
 
 Load connector docs, schema files, and knowledge-base files when the task needs them. Do not preload them.
@@ -55,7 +55,7 @@ Everything else needs the user to ask first. Specifically:
 - Rules in `entities.md` are written to KEEP wanted rows, so they `AND` together directly
   into a `WHERE` clause. Never paste one into a clause that selects rows to remove. That
   inverts the filter, keeps exactly the rows you meant to drop, and nothing errors.
-- If a rule is missing for a case you hit, for example a new internal domain, stop and ask. Do not invent the rule.
+- If a rule is missing for a case you hit, for example a new internal domain, do not invent the rule. Name what is undefined, say what you assumed instead, put both in the output, and continue. Stop and ask only when the assumption would change the answer and nothing in the repo gives you a basis for picking.
 - When an exclusion materially changes the answer, show both numbers. "12,400 signups, or 9,850 excluding internal and demo" is more useful than either alone.
 - Never join across sources on an identifier that `entities.md` has not confirmed. Say what you could not join instead.
 
@@ -93,15 +93,16 @@ Everything else needs the user to ask first. Specifically:
 - Update `task.md` when the plan, status, blocker, or next action changes.
 - Append to `log.md` what you did, what you assumed, and what is unverified, so a cold agent can resume without the transcript.
 - Update `index.md` when you add or remove a mapped file, source, skill, or report.
-- Reports go to `reports/YYYY-MM-DD-<topic>.md` and follow the contract in `reports/_template/report.md`. A missing required field is an incomplete output, not a style choice.
+- Reports go to `reports/YYYY-MM-DD-<topic>.md` and follow one of the two shapes in `reports/_template/report.md`. Short form for a single-source question, full form when it crosses sources, spans time periods, or feeds a decision that matters. Pick the shape the question deserves and say nothing you had to invent to fill a heading.
 
-## When you are blocked
+## When something is missing
 
-State which of these is true, and stop:
+Say which of these is true, in one line, in the output, and keep going:
 
-- The source is not ready. Name the missing condition from C-08.
-- The definition is missing. Name what `entities.md` does not answer.
+- The source is not verified. Name the missing condition from C-08.
+- The definition is missing. Name what `entities.md` does not answer, and what you assumed instead.
 - The schema does not contain what the question needs.
-- The question needs a write, or a spend, or an external send.
+
+Stop only for a question that needs a write, a spend, or an external send. Those need the user, per C-02.
 
 Continue with partial evidence when it still helps the PM decide, and label it partial. Do not fill a gap with a plausible number.

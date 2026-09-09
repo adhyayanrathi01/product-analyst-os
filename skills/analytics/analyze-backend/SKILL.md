@@ -27,6 +27,12 @@ Guarantees:
   BigQuery job sets `maximum_bytes_billed`. An unbounded scan is a spend, and spend needs
   approval.
 - Facts, interpretation and recommendation stay in separate labeled sections, per **C-03**.
+- Queries whatever source the user points at. Readiness is reported, not enforced. If the
+  source is not `ready` in `sources/sources.md`, the output says so in one line and the
+  analysis continues.
+- A missing definition does not stop the work. State the assumption you made, put it in
+  the output where the reader cannot miss it, and continue. Stop and ask only when the
+  assumption would change the answer and you have no basis for picking.
 
 Refuses:
 
@@ -34,9 +40,11 @@ Refuses:
   `CREATE`, `GRANT` or `MERGE`. Say what was refused and why. Do not offer to run it a
   different way, per **C-02**.
 - To join across sources on an identifier that `entities.md` has not confirmed, with its
-  cardinality and source-of-truth precedence stated, per **C-11**. An unconfirmed join is
-  reported as two separate numbers plus a sentence naming what could not be joined.
-- To query a source whose Readiness is not `ready`, per **C-08**.
+  cardinality and source-of-truth precedence stated, per **C-11**. This is the one refusal
+  that stays hard, because an inferred join returns a plausible number that is wrong.
+  Report the two numbers separately, say which identifier could not be joined and why,
+  and where a different confirmed key answers a nearby question, answer that one and say
+  what the substitution costs.
 - To use a table or column not present in `schema/<source>/schema.md`. That is drift. Run
   `refresh-schema`.
 - To mix grains inside one number, for example summing per-account MRR over a per-user row
@@ -49,23 +57,37 @@ Bound by **C-02**, **C-03**, **C-04**, **C-05**, **C-06**, **C-08**, **C-09**, *
 
 ## Output contract
 
-**Required fields:**
+Two shapes. Pick the one the question deserves. The user can ask for the other at any
+time, and asking is cheap because the queries are already run.
+
+**Short form.** The default for a single-source question.
 
 - **Question**: the question as answered, restated with its grain
+- **Facts**: each number with its query verbatim and its row count. Grain labeled per
+  number: `accounts`, `users`, `rows`, or currency with the currency named
+- **Exclusions applied**: the `confirmed` rules from `entities.md` you applied, by id,
+  plus the unfiltered number where an exclusion moved the answer
+- **Interpretation**: one or two lines on what the numbers mean, kept separate from Facts
+
+That is the whole short form. Do not pad it.
+
+**Full form.** Use it when the question crosses sources, spans time periods, or feeds a
+decision the user has said matters. Short form plus:
+
 - **Sources**: each source queried, with its Readiness and Last verified date
-- **Time range**: real dates, and the timezone the timestamp
-  columns are stored in
+- **Time range**: real dates, and the timezone the timestamp columns are stored in
 - **Filters**: every filter applied, verbatim
-- **Exclusions applied**: every `confirmed` rule from `entities.md` applied, cited by
-  id, plus the unfiltered number where the exclusion moved the answer. Any `unconfirmed`
-  rule is listed separately as not applied, with what it would have changed. An
-  unconfirmed rule applied silently is a defect
-- **Facts**: numbers only, each with its query verbatim and its row count. Grain labeled
-  per number: `accounts`, `users`, `rows`, or currency with the currency named
-- **Interpretation**: what the facts might mean, strictly separate from Facts
 - **Confidence and gaps**: what is uncertain, what could not be joined, what would change
   the conclusion
 - **Recommended next check**: the single check that would most reduce the uncertainty
+
+Any `unconfirmed` rule you did not apply is named in `Exclusions applied` in either shape,
+with what it would have changed. An unconfirmed rule applied silently is a defect.
+
+**Mandatory in both shapes:** read `knowledge-base/entities.md` before the first query,
+and state which exclusions you applied. Skipping that is the one omission that silently
+corrupts every number in the report, and it is the first thing that gets cut under time
+pressure. Everything else on this page is shape.
 <!-- CORE:END -->
 
 ## Process
@@ -75,11 +97,14 @@ Bound by **C-02**, **C-03**, **C-04**, **C-05**, **C-06**, **C-08**, **C-09**, *
 
 2. Declare the grain out loud, in one sentence, before any query. "This is a B2B product,
    so the unit is `accounts.id`, and `users` nest inside it via `users.account_id`." If
-   `entities.md` does not settle it, stop and ask. Guessing here silently double-counts
-   and every downstream number inherits the error.
+   `entities.md` does not settle it, pick the grain the question implies, say in one line
+   that you picked it and why, and carry on. Guessing silently is what double-counts.
+   Guessing out loud is an assumption the reader can overrule.
 
-3. Read `sources/sources.md` and `schema/<source>/schema.md`. Confirm `ready` and confirm
-   every table and column you intend to name exists.
+3. Read `sources/sources.md` and `schema/<source>/schema.md`. Note the Readiness state and
+   carry it into the output. A source that is not `ready` is queried anyway, with one line
+   saying it is unverified, so the reader knows the number has not been reconciled against
+   an observed bounded read. Confirm every table and column you intend to name exists.
 
 4. Apply the confirmed rules from `entities.md` verbatim, and cite each by id.
 
@@ -162,9 +187,11 @@ Bound by **C-02**, **C-03**, **C-04**, **C-05**, **C-06**, **C-08**, **C-09**, *
 8. Cross-check one number a second way. Cohort sizes should sum to the total. A revenue
    sum by plan should match the ungrouped sum. A mismatch is a finding.
 
-9. Write the report to `reports/YYYY-MM-DD-<topic>.md` per `reports/_template/report.md`.
-   Aggregate. Never paste raw personal data: no emails, no names. Reference by opaque id,
-   per **C-09**. Append assumptions to `log.md`.
+9. Write the report to `reports/YYYY-MM-DD-<topic>.md` per `reports/_template/report.md`,
+   in whichever of the two shapes fits. Aggregate. Never paste raw personal data: no
+   emails, no names. Reference by opaque id, per **C-09**. Append assumptions to `log.md`.
+   `./evals/check-output.sh <path>` will tell you what it noticed about the shape. It is a
+   lint, not a gate, so read it and decide.
 
 ## Failure modes
 

@@ -31,7 +31,7 @@ making the definitions explicit, the schema captured, and the query mandatory.
 |---|---|
 | `AGENTS.md` | Every operating rule. The single source. |
 | `CLAUDE.md` | `@AGENTS.md` plus Claude-specific mechanics. |
-| `CHARTER.md` | 12 immutable clauses. Read, never written. |
+| `CHARTER.md` | 12 clauses. Read by the agent, never written by it. Amending one is a human decision that bumps the minor version. |
 | `agents/roles.md` | Orchestrator, worker, evaluator, as portable contracts. |
 | `knowledge-base/` | Your definitions. The agent reads these and never edits them. |
 | `sources/` | How to connect 7 sources read-only, and which ones are verified. |
@@ -53,28 +53,35 @@ Then, in this order:
    If the agent does not know what "active" means or which accounts are internal, every
    number it produces is wrong in a way that looks right.
 2. Point your agent at your sources, and make the credentials read-only.
-3. Run verify. A source is not ready because a key is stored. It is ready when the agent
-   has actually read from it once.
-4. Capture schema, so the agent queries against real column names.
-5. Ask a question.
+3. Ask a question. It will answer, and it will tell you what was unverified.
+
+Then, when you want the answers to be more than plausible:
+
+4. Run verify. A source is not ready because a key is stored. It is ready when the agent
+   has actually read from it once. Nothing blocks until you do this. What you get from
+   doing it is a report that says the number came from a source somebody proved reads.
+5. Capture schema, so the agent queries against real column names instead of the ones in
+   your prompt.
 
 ### What `TODO` and `EXAMPLE` mean
 
 The knowledge base ships unfilled, on purpose. Two markers tell you what is left:
 
-- **`TODO`** is a field you must fill. The agent treats a `TODO` as a missing definition
-  and stops rather than guessing.
+- **`TODO`** is a field you must fill. Until you do, the agent names it as an undefined
+  term, says what it assumed instead, and answers anyway. That is a worse answer than the
+  one you get after filling it in, and it tells you so.
 - **`EXAMPLE`** is a sample from a fictional company called Nimbus Freight. **Delete
   these as you fill each file in.** A leftover example is worse than a `TODO`, because
   the agent reads it as a fact about your product.
 
-`./setup.sh --check` counts both per file and tells you whether analysis is unblocked:
+`./setup.sh --check` counts both per file and tells you what your answers are still
+resting on:
 
 ```
 == Knowledge base ==
   warn     entities.md    37 TODO, 12 EXAMPLE block(s) to delete
   ...
-  Analysis is BLOCKED. entities.md still has 37 TODO markers.
+  Analysis will RUN ON ASSUMPTIONS. entities.md still has 37 TODO markers.
 ```
 
 Section 5 of `entities.md`, the lifecycle edge cases, is allowed to stay `TODO`. Fill a
@@ -103,7 +110,8 @@ for the three things an official connector does not give you:
    column names instead of the agent guessing. BigQuery needs
    `INFORMATION_SCHEMA.COLUMN_FIELD_PATHS`, not `COLUMNS`, or nested event fields vanish.
 3. **A bounded smoke test**, so a source can move from `blocked` to `ready` on an observed
-   read rather than on a stored key.
+   read rather than on a stored key. `blocked` means nobody has proved it reads. It does
+   not mean you cannot query it.
 
 The one installation warning worth reading anyway: **never use
 `@modelcontextprotocol/server-postgres`.** It is archived with an unpatched SQL injection
@@ -133,7 +141,7 @@ enforcement is in the harness:
 shell access can edit any file in here. The hooks make tampering visible and
 inconvenient. They do not make it impossible.
 
-Two honest limits. There is no `core.sha256` integrity manifest in v0.1.0, so a changed
+Two honest limits. There is no `core.sha256` integrity manifest in v0.2.0, so a changed
 CORE region in a skill is not currently detectable. And Codex's `workspace-write` sandbox
 bounds writes to this repo but does not protect files inside it, so under Codex the
 knowledge-base and charter rules have no enforcement beyond the prose.
@@ -168,13 +176,40 @@ currently writable, as a warning, since a fresh clone is unprotected on purpose.
 
 ## What it will not do
 
-- Write to any data source. Every query is a read.
+- Write to any data source. Every query is a read, and a destructive statement is
+  refused rather than rewritten.
 - Edit your `knowledge-base/`. It proposes a diff and waits.
-- Join two sources on an identifier you have not confirmed.
-- Give you a number without the query, the date range, and the exclusions applied.
+- Join two sources on an identifier you have not confirmed. It reports the two numbers
+  separately and says which identifier it could not join, because an inferred join
+  returns a plausible number that is wrong.
+- Give you a number without the query that produced it and the exclusions applied.
+- Print or commit a credential.
+- Treat anything it read, a query result, a page, a cell value, as an instruction.
 - Decide what to build. That is still your job.
+
+## What it will not stop you doing
+
+v0.2.0 removed the gates that made v0.1.0 unusable. A dry run against a fixture world
+found that as shipped, zero analyses could run: every source ships `blocked`, and both
+analyze skills refused a source that was not `ready`. So:
+
+- **Readiness is reported, not enforced.** Point it at a database and ask. If the source
+  has not been verified through a bounded read, the answer says so in one line and
+  continues.
+- **A missing definition is an assumption, not a stop.** It names what is undefined, says
+  what it assumed, and carries on.
+- **Reports come in two shapes.** Short form for a single-source question: question,
+  facts with their queries, exclusions applied, one line of interpretation. Full form
+  when the question crosses sources, spans time periods, or feeds a decision that
+  matters. Ask for the other shape any time.
+- **`check-output.sh` is a lint.** It prints what it noticed and exits 0. `--strict` if
+  you want it failing a build.
+
+One thing stayed mandatory: read `knowledge-base/entities.md` before querying, and state
+which exclusions were applied. That is the step whose omission silently corrupts every
+number, so it is the one that did not get relaxed.
 
 ## Status
 
-v0.1.0. First iteration, deliberately small. No scheduling, no dashboard, no write-back,
-no cost tracking.
+v0.2.0. Second iteration, still small. No scheduling, no dashboard, no write-back, no
+cost tracking. See `CHANGELOG.md`.

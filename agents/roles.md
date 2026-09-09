@@ -70,9 +70,10 @@ Never writes to the artifact it grades.
 
 Two layers, because they catch different failures:
 
-**Deterministic**, `evals/check-output.sh`. Required fields present, dates absolute,
-exclusions stated, every number carrying a query. Cheap, runs anywhere, catches
-structure. Cannot judge whether the analysis is sound.
+**Deterministic**, `evals/check-output.sh`. Sections present for the shape the report
+used, dates absolute, exclusions stated, every number carrying a query. Cheap, runs
+anywhere, catches structure. It is a lint that exits 0 on findings, so read its output
+rather than its exit code, and it cannot judge whether the analysis is sound.
 
 **Judgment**, this role. Reads the artifact and the evidence behind it and answers:
 

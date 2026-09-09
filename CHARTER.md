@@ -31,7 +31,9 @@ In a report these map to the `Facts`, `Interpretation`, and `Recommended next ch
 
 **C-11** Cross-source joins are never inferred. A join runs only on an identifier confirmed in `knowledge-base/entities.md`, with its cardinality and source-of-truth precedence stated.
 
-**C-12** A self-edit may not modify this charter, an immutable core region, a constraint file, or anything under `evals/`.
+**C-12** A self-edit may not modify this charter, an immutable core region, or a constraint file.
+
+Writing evals is allowed: scenarios, fixtures and results under `evals/` may be authored by an agent, because an agent that cannot write a test cannot test this repo. What is forbidden is editing a scenario, a fixture expectation, or a check in order to make a failing check pass. Fix the thing under test, or report the failure and stop. Changing a check on purpose, because the check is wrong, is a spec change the user asks for, and it says so in `log.md`.
 
 ## What immutable means here
 

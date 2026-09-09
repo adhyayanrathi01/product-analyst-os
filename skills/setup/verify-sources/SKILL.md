@@ -11,6 +11,10 @@ description: Prove each configured source is actually readable with one bounded 
 This skill is the only thing in the repo that may set a source to `ready`. It does that
 by observing a read, not by trusting a claim.
 
+It records a verification. It does not gate anything. An unverified source can still be
+queried, and the analysis says in one line that it is unverified. What running this skill
+buys is that the reader knows the source answered a real read on a real date.
+
 **C-08** requires four conditions together. All four, or the source is not ready:
 
 1. **Authorized.** A credential exists and the user is entitled to use it.
@@ -153,9 +157,9 @@ Bound by **C-08**, **C-04**, **C-06**, **C-09**, **C-02**.
 
 6. Append to `log.md`: what was verified, the state per source, and anything unverified.
 
-7. State plainly which sources are safe to analyze. `analyze-frontend` and
-   `analyze-backend` must refuse anything not `ready`, or say so loudly if the user
-   overrides.
+7. State plainly which sources were verified and which were not. `analyze-frontend` and
+   `analyze-backend` will query either kind. They name the readiness state in the output
+   so the reader knows which numbers came from a source nobody has read from yet.
 
 ## Failure modes
 

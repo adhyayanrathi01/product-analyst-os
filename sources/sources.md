@@ -1,8 +1,8 @@
 # Source registry
 
-One row per source. This table is the only place that says whether a source may
-be queried. Read it before any query. Never query a source marked `partial` or
-`blocked` without saying so in the output.
+One row per source. This table records how far each source has been verified. It
+does not decide what you may query. Read it before any query, and when you query a
+source marked `partial` or `blocked`, say so in one line in the output.
 
 ## What readiness means
 
@@ -13,9 +13,13 @@ prove the key works, that it is scoped read-only, or that the endpoint answers.
 
 | Readiness | Meaning |
 |---|---|
-| `blocked` | Not connected, or the smoke test has never passed. Do not query. |
+| `blocked` | Not verified yet. Either nothing is connected, or the smoke test has never been run and passed. Querying it is allowed. Say in the output that the source is unverified. |
 | `partial` | Credentials exist and are scoped, but no bounded read has been observed yet, or the last observed read was on a subset of what the source holds. Say so in every output. |
 | `ready` | One bounded read from the connector doc's smoke test was actually run and returned rows. Record the date in the verification column. |
+
+`blocked` means "nobody has proved this reads", not "forbidden". A number from a
+`blocked` source is a real number that nobody has reconciled against an observed
+read, and the report says which it is.
 
 A row only moves to `ready` by a human or agent running the smoke test in
 `sources/connectors/<name>.md` and seeing rows come back. `./setup.sh --check`

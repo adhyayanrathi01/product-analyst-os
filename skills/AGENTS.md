@@ -13,7 +13,8 @@ single skill.
 - Accounts, users, revenue: `analytics/analyze-backend`
 
 Order matters. Connect, verify, capture, then analyze. A skill that needs an earlier one
-to have run says so and stops.
+to have run says so in its output and continues with what it has. None of them gate on
+an earlier step having run.
 
 ## The CORE fence
 
@@ -28,6 +29,7 @@ language is a defect.
 
 ## Before delivering
 
-Read the skill's **Required fields** and confirm every one is present in the output, by
-name. A missing required field is an incomplete output, not a style choice. Then run
-`evals/check-output.sh` where the output is a report.
+Read the skill's **Output contract**, pick the shape the question deserves, and confirm
+the fields for that shape are present by name. Then run `evals/check-output.sh` where
+the output is a report. It is a lint: it reports and exits 0, so read what it says
+rather than watching the exit code.

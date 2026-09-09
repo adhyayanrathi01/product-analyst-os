@@ -1,21 +1,28 @@
 #!/usr/bin/env bash
-# Deterministic half of the Evaluator role in agents/roles.md.
+# This is a lint, not a gate.
 #
-# Checks a report's structure against reports/_template/report.md and the charter
-# clauses that can be checked without judgment: C-05 absolute dates and a query per
-# number, C-09 no secrets, C-10 exclusions stated.
+# It reads a report and prints what it noticed. By default it exits 0 even when it
+# finds something, because you decide whether a finding matters for your question.
+# Pass --strict to make findings exit 1, which is what you want in CI.
 #
-# It cannot tell you whether the analysis is sound. A PASS here with a FAIL on the
-# judgment pass is still a FAIL.
+# It checks structure against reports/_template/report.md and the charter clauses that
+# can be checked without judgment: C-05 absolute dates and a query per number, C-09 no
+# secrets, C-10 exclusions stated.
+#
+# It cannot tell you whether the analysis is sound. A clean run here means the shape is
+# right. It says nothing about whether the number is right.
 #
 # Usage:
 #   ./evals/check-output.sh <artifact-path>
+#   ./evals/check-output.sh --strict <artifact-path>
 #   ./evals/check-output.sh --self-test
 #
-# Exit 0 all checks passed, 1 at least one FAIL, 2 bad usage.
+# Exit 0 normally, even with findings. Exit 1 only with --strict and at least one
+# finding. Exit 2 when the file cannot be read or the usage is wrong.
 # Dependencies: bash, grep, awk, sed, mktemp. Nothing else.
 set -uo pipefail
 
+STRICT=0
 pass_count=0
 fail_count=0
 warn_count=0
@@ -23,14 +30,19 @@ warn_count=0
 ok()   { printf 'PASS  %s\n' "$1"; pass_count=$((pass_count + 1)); }
 bad()  { printf 'FAIL  %s\n' "$1"; fail_count=$((fail_count + 1)); }
 warn() { printf 'WARN  %s\n' "$1"; warn_count=$((warn_count + 1)); }
+note() { printf 'NOTE  %s\n' "$1"; }
 
-REQUIRED_SECTIONS='Question
-Sources
+# Short form. Required in both report shapes.
+CORE_SECTIONS='Question
+Facts
+Exclusions applied
+Interpretation'
+
+# Full form adds these. Absent means short form, which is fine for a single-source
+# question. See reports/_template/report.md.
+FULL_SECTIONS='Sources
 Time range
 Filters
-Exclusions applied
-Facts
-Interpretation
 Confidence and gaps
 Recommended next check'
 
@@ -50,19 +62,30 @@ has_heading() { # $1 heading text, $2 file
 check_artifact() {
   local file="$1"
 
-  # --- 1. Required sections present as headings -----------------------------
-  local missing=""
-  local s
+  # --- 1. Sections present as headings --------------------------------------
+  local missing="" absent="" s
   while IFS= read -r s; do
     [ -n "$s" ] || continue
     has_heading "$s" "$file" || missing="$missing, $s"
   done <<EOF
-$REQUIRED_SECTIONS
+$CORE_SECTIONS
 EOF
-  if [ -z "$missing" ]; then
-    ok "all 9 required sections present"
+  while IFS= read -r s; do
+    [ -n "$s" ] || continue
+    has_heading "$s" "$file" || absent="$absent, $s"
+  done <<EOF
+$FULL_SECTIONS
+EOF
+
+  if [ -n "$missing" ]; then
+    bad "missing short-form section(s):${missing#,}. Both shapes need these four."
+  elif [ -z "$absent" ]; then
+    ok "full form, all 9 sections present"
   else
-    bad "missing required section(s):${missing#,}"
+    ok "short form, all 4 required sections present"
+    note "full-form sections not present:${absent#,}"
+    note "that is fine for a single-source question. Ask for the full form when it"
+    note "crosses sources, spans time periods, or feeds a decision that matters."
   fi
 
   # --- 2. Exclusions stated, and not a bare "none" (C-10) -------------------
@@ -109,7 +132,8 @@ EOF
       bad "Time range contains relative date(s): $hits (C-05 requires absolute dates)"
     fi
   else
-    bad "Time range section absent, so dates cannot be checked (C-05)"
+    note "no Time range section, so dates were not checked. Short form does not"
+    note "require one, but any date inside Facts still has to be absolute (C-05)."
   fi
 
   # --- 4. Numbers in Facts should carry a query (C-05), warn only -----------
@@ -141,6 +165,8 @@ EOF
   else
     bad "credential pattern found, this must never ship (C-09). First matches:"
     printf '%s\n' "$secrets" | sed 's/^/        line /'
+    printf '      This is the one finding not to wave through. Rotate the credential if\n'
+    printf '      it was ever committed, and refer to it by env var name instead.\n'
   fi
 }
 
@@ -194,7 +220,7 @@ self_test() {
 
   sp=0
   sf=0
-  assert() { # $1 label, $2 file, $3 expected exit code
+  assert() { # $1 label, $2 file, $3 expected default exit, $4 expected --strict exit
     local got
     "$0" "$2" >/dev/null 2>&1
     got=$?
@@ -202,37 +228,53 @@ self_test() {
       sp=$((sp + 1))
     else
       sf=$((sf + 1))
-      printf 'SELF-TEST FAIL: %s (expected exit %s, got %s)\n' "$1" "$3" "$got"
+      printf 'SELF-TEST FAIL: %s, default run (expected exit %s, got %s)\n' "$1" "$3" "$got"
+    fi
+    "$0" --strict "$2" >/dev/null 2>&1
+    got=$?
+    if [ "$got" = "$4" ]; then
+      sp=$((sp + 1))
+    else
+      sf=$((sf + 1))
+      printf 'SELF-TEST FAIL: %s, --strict run (expected exit %s, got %s)\n' "$1" "$4" "$got"
     fi
   }
 
-  # Good artifact passes.
-  write_good "$dir/good.md"
-  assert "good artifact passes" "$dir/good.md" 0
+  # Every case below asserts twice: the default advisory run, then --strict. A finding
+  # exits 0 by default and 1 under --strict. That difference is the whole point of the
+  # flag, so each case states both.
 
-  # Missing a required section.
-  grep -v '^## Confidence and gaps$' "$dir/good.md" > "$dir/bad-missing-section.md"
-  assert "missing section fails" "$dir/bad-missing-section.md" 1
+  # Good artifact passes both ways.
+  write_good "$dir/good.md"
+  assert "good artifact passes" "$dir/good.md" 0 0
+
+  # A full-form section missing is short form, not a finding, in either mode.
+  grep -v '^## Confidence and gaps$' "$dir/good.md" > "$dir/short-form.md"
+  assert "missing full-form section is not a finding" "$dir/short-form.md" 0 0
+
+  # A short-form section missing is a finding in both shapes.
+  grep -v '^## Facts$' "$dir/good.md" > "$dir/bad-missing-core.md"
+  assert "missing core section is a finding" "$dir/bad-missing-core.md" 0 1
 
   # Exclusions says only "None."
   sed 's/^E-1 internal domains.*/None./; /^because it is unconfirmed\.$/d' \
     "$dir/good.md" > "$dir/bad-exclusions-none.md"
-  assert "bare \"None.\" in exclusions fails" "$dir/bad-exclusions-none.md" 1
+  assert "bare \"None.\" in exclusions" "$dir/bad-exclusions-none.md" 0 1
 
   # Exclusions section empty.
   awk '/^## Exclusions applied$/{print; skip=1; next} skip && /^## /{skip=0} !skip' \
     "$dir/good.md" > "$dir/bad-exclusions-empty.md"
-  assert "empty exclusions fails" "$dir/bad-exclusions-empty.md" 1
+  assert "empty exclusions" "$dir/bad-exclusions-empty.md" 0 1
 
   # Relative date left in Time range.
   sed 's/^2025-12-01 00:00:00 UTC.*/Last 30 days./' \
     "$dir/good.md" > "$dir/bad-relative-date.md"
-  assert "relative date in Time range fails" "$dir/bad-relative-date.md" 1
+  assert "relative date in Time range" "$dir/bad-relative-date.md" 0 1
 
   # Another relative phrase.
   sed 's/^2025-12-01 00:00:00 UTC.*/Recently, and YTD./' \
     "$dir/good.md" > "$dir/bad-relative-ytd.md"
-  assert "recently and YTD in Time range fails" "$dir/bad-relative-ytd.md" 1
+  assert "recently and YTD in Time range" "$dir/bad-relative-ytd.md" 0 1
 
   # Secrets. Built at runtime so no literal credential sits in this file.
   local u p
@@ -240,34 +282,37 @@ self_test() {
   p='hunter2@db.internal:5432/prod'
   write_good "$dir/bad-secret-dsn.md"
   printf '\nConnection used: %s:%s\n' "$u" "$p" >> "$dir/bad-secret-dsn.md"
-  assert "connection string fails" "$dir/bad-secret-dsn.md" 1
+  assert "connection string" "$dir/bad-secret-dsn.md" 0 1
 
   write_good "$dir/bad-secret-bearer.md"
   printf '\nAuth header: Bearer %s\n' "abcdEFGH1234ijklMNOP5678" \
     >> "$dir/bad-secret-bearer.md"
-  assert "bearer token fails" "$dir/bad-secret-bearer.md" 1
+  assert "bearer token" "$dir/bad-secret-bearer.md" 0 1
 
   write_good "$dir/bad-secret-phx.md"
   printf '\nKey: %s%s\n' 'phx_' 'A1b2C3d4E5f6G7h8' >> "$dir/bad-secret-phx.md"
-  assert "phx_ key fails" "$dir/bad-secret-phx.md" 1
+  assert "phx_ key" "$dir/bad-secret-phx.md" 0 1
 
   write_good "$dir/bad-secret-sk.md"
   printf '\nKey: %s%s\n' 'sk-' 'proj0123456789abcdef' >> "$dir/bad-secret-sk.md"
-  assert "sk- key fails" "$dir/bad-secret-sk.md" 1
+  assert "sk- key" "$dir/bad-secret-sk.md" 0 1
 
   write_good "$dir/bad-secret-apikey.md"
   printf '\nCalled with %s%s\n' 'api_key=' 'ZmFrZTEyMzQ1' >> "$dir/bad-secret-apikey.md"
-  assert "api_key with a value fails" "$dir/bad-secret-apikey.md" 1
+  assert "api_key with a value" "$dir/bad-secret-apikey.md" 0 1
 
-  # A number with no fenced block is a warning, not a failure.
+  # A number with no fenced block is a warning, not a finding, in either mode.
   grep -v '^```' "$dir/good.md" | grep -v '^SELECT COUNT' > "$dir/warn-no-query.md"
-  assert "no fenced query warns but still exits 0" "$dir/warn-no-query.md" 0
+  assert "no fenced query only warns" "$dir/warn-no-query.md" 0 0
 
   # Words that only look like secrets must not trip the check.
   write_good "$dir/good-lookalike.md"
   printf '\nThis task-scoped, risk-free run had no api_key set.\n' \
     >> "$dir/good-lookalike.md"
-  assert "secret lookalikes do not fail" "$dir/good-lookalike.md" 0
+  assert "secret lookalikes are not findings" "$dir/good-lookalike.md" 0 0
+
+  # An unreadable file exits 2 whatever the mode. This is the only hard failure left.
+  assert "missing file exits 2" "$dir/does-not-exist.md" 2 2
 
   echo "---"
   printf 'self-test: %s passed, %s failed\n' "$sp" "$sf"
@@ -279,21 +324,30 @@ self_test() {
 # Entry
 # ---------------------------------------------------------------------------
 
-case "${1:-}" in
-  --self-test)
-    self_test
-    exit $?
-    ;;
-  -h|--help|"")
-    echo "Usage: $0 <artifact-path>"
-    echo "       $0 --self-test"
-    exit 2
-    ;;
-esac
+usage() {
+  echo "Usage: $0 [--strict] <artifact-path>"
+  echo "       $0 --self-test"
+  echo
+  echo "This is a lint, not a gate. Without --strict it exits 0 even with findings."
+}
 
-ARTIFACT="$1"
-if [ ! -f "$ARTIFACT" ]; then
-  echo "No such file: $ARTIFACT" >&2
+ARTIFACT=""
+for arg in "$@"; do
+  case "$arg" in
+    --self-test) self_test; exit $? ;;
+    --strict)    STRICT=1 ;;
+    -h|--help)   usage; exit 2 ;;
+    -*)          echo "Unknown option: $arg" >&2; usage >&2; exit 2 ;;
+    *)           ARTIFACT="$arg" ;;
+  esac
+done
+
+if [ -z "$ARTIFACT" ]; then
+  usage >&2
+  exit 2
+fi
+if [ ! -f "$ARTIFACT" ] || [ ! -r "$ARTIFACT" ]; then
+  echo "Cannot read file: $ARTIFACT" >&2
   exit 2
 fi
 
@@ -301,6 +355,12 @@ echo "Checking $ARTIFACT"
 echo "---"
 check_artifact "$ARTIFACT"
 echo "---"
-printf '%s passed, %s failed, %s warnings\n' "$pass_count" "$fail_count" "$warn_count"
-[ "$fail_count" -eq 0 ] || exit 1
+printf '%s passed, %s finding(s), %s warnings\n' "$pass_count" "$fail_count" "$warn_count"
+if [ "$fail_count" -gt 0 ]; then
+  if [ "$STRICT" -eq 1 ]; then
+    echo "--strict: exiting 1 on the findings above."
+    exit 1
+  fi
+  echo "Advisory run. Findings above are yours to judge, so exiting 0. Use --strict in CI."
+fi
 exit 0

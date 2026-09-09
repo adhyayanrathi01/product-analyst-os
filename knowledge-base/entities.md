@@ -7,9 +7,11 @@ made-up B2B logistics SaaS. Nimbus Freight does not exist. Delete every EXAMPLE 
 once you have written your own. An agent that reads an EXAMPLE row as fact will
 produce a confidently wrong number.
 
-This file blocks all analysis. `AGENTS.md` tells the agent to read it before any
-query. If a section here is still `TODO`, the agent stops and asks instead of
-guessing.
+This file is the one read that is never optional. `AGENTS.md` tells the agent to
+read it before any query, every time. If a section here is still `TODO`, the agent
+does not invent a rule. It names what is undefined, says what it assumed instead,
+puts both in the output, and answers. An answer built on a stated assumption is
+usable. One built on a silent guess is not.
 
 ---
 
@@ -141,7 +143,7 @@ agent applies confirmed rules automatically and stops to ask about unconfirmed o
 | E-5 | Sandbox and staging | `events.properties.environment = 'production'` | PostHog | confirmed | Staging writes to the same project. Property is missing on events before 2025-03-01, so treat missing as non-production before that date. |
 | E-6 | Test accounts created by real users | `accounts.name !~* '^(test\|asdf\|delete me\|zzz)'` | Postgres `public.accounts` | unconfirmed | Heuristic on a free-text field. Report both numbers when it moves the answer. |
 | E-7 | Bots and automated traffic | `events.properties.$lib NOT IN ('posthog-python','posthog-node')` and user agent not matching `bot\|crawler\|spider\|headless` | PostHog | confirmed | Server-side libs here are backfills and integration tests, not humans. |
-| E-8 | Churned entities | `accounts.churned_at IS NULL OR accounts.churned_at > <window_end>` | Postgres `public.accounts` | confirmed | Do not drop churned accounts from historical windows. They were real then. |
+| E-8 | Churned entities | `accounts.churned_at IS NULL OR accounts.churned_at > <window_start>` | Postgres `public.accounts` | confirmed | Do not drop churned accounts from historical windows. They were real then. `<window_start>` and not `<window_end>`: an account that churned mid-window was a customer for part of it, and comparing against `<window_end>` deletes exactly the rows this note says to keep. |
 | E-9 | Deleted entities | `accounts.deleted_at IS NULL` for current-state questions. For historical windows use `deleted_at IS NULL OR deleted_at > <window_end>`. | Postgres `public.accounts` | confirmed | Soft delete. Rows stay. |
 | E-10 | Free vs paid | Not excluded by default. Split by `accounts.plan_type = 'free'` when the question is about revenue or retention. | Postgres `public.accounts` | confirmed | Free accounts are 61% of the account count and 0% of revenue. Mixing them flattens any revenue-adjacent metric. |
 
@@ -152,13 +154,14 @@ from 12,400 to 9,850. A report that shows only one of those numbers is hiding a
 ### How to state exclusions in a report
 
 Every report lists the rule ids it applied, by id, in the `Exclusions applied`
-section. If it applied none, it says why in a sentence. "None" on its own fails
-`evals/check-output.sh`.
+section. If it applied none, it says why in a sentence. "None" on its own gets
+flagged by `evals/check-output.sh`.
 
 ### When a case has no rule
 
-Stop. Do not invent one. Report the case, the row count it affects, and ask. A new
-internal email domain is the common version of this.
+Do not invent one. Report the case, the row count it affects, say which way you
+treated it and why, and carry on. A new internal email domain is the common version
+of this, and the fix is a row in the table above, not a guess in a query.
 
 ---
 

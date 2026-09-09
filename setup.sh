@@ -450,14 +450,16 @@ check_knowledge_base() {
 
   echo ""
   if [ "$entities_todo" -gt 0 ]; then
-    echo "  Analysis is BLOCKED. entities.md still has $entities_todo TODO markers."
+    echo "  Analysis will RUN ON ASSUMPTIONS. entities.md still has $entities_todo TODO markers."
     echo "  Without the grain, the active definition and the exclusion rules, every"
-    echo "  number is unfiltered and counted at an unknown unit. That is worse than"
-    echo "  no number, because it looks like an answer."
+    echo "  number is unfiltered and counted at an unknown unit. Reports will say so"
+    echo "  in every answer, which is the best they can do. Filling this in is what"
+    echo "  turns those assumptions into facts."
     echo "  Section 5, lifecycle edge cases, may stay TODO. Fill a row when the case"
     echo "  first happens. See knowledge-base/README.md."
   else
-    echo "  entities.md has no TODO markers. Analysis is unblocked."
+    echo "  entities.md has no TODO markers. Numbers rest on your definitions, not on"
+    echo "  the agent's assumptions."
   fi
   return 0
 }

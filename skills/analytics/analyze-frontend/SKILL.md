@@ -25,14 +25,25 @@ Guarantees:
   reader must be able to take the facts and reach a different conclusion.
 - Client-side undercount is named in every output that uses client-side events, not only
   when it happens to matter.
+- Queries whatever source the user points at. Readiness is reported, not enforced. If the
+  source is not `ready` in `sources/sources.md`, the output says so in one line and the
+  analysis continues.
+- A missing definition does not stop the work. State the assumption you made, put it in
+  the output where the reader cannot miss it, and continue. Stop and ask only when the
+  assumption would change the answer and you have no basis for picking.
 
 Refuses:
 
-- To query a source whose Readiness in `sources/sources.md` is not `ready`, per **C-08**.
 - To use an event name or property that is not in `schema/<source>/schema.md`. A missing
   name is drift. Run `refresh-schema`. It is never permission to guess.
 - To join event data to a backend source on an identifier that `entities.md` has not
-  confirmed, per **C-11**. Say what could not be joined instead.
+  confirmed, per **C-11**. This is the one refusal that stays hard, because an inferred
+  join returns a plausible number that is wrong. Report the event-side number and the
+  entity-side number separately and say which identifier could not be joined and why.
+  Then look for a different confirmed key that answers a nearby question, for example
+  `account_id` when `distinct_id` to `users.id` is unconfirmed, answer that one, and say
+  in one sentence what the grain shift costs the reader. "Cannot answer" satisfies C-11
+  and helps nobody.
 - To report event volume as user count. They are different numbers with different names.
 - To report a funnel conversion rate without stating the step order and the attribution
   window that produced it.
@@ -46,32 +57,51 @@ Bound by **C-03**, **C-04**, **C-05**, **C-06**, **C-08**, **C-10**, **C-11**, *
 
 ## Output contract
 
-**Required fields:**
+Two shapes. Pick the one the question deserves. The user can ask for the other at any
+time, and asking is cheap because the queries are already run.
+
+**Short form.** The default for a single-source question.
 
 - **Question**: the question as answered, restated precisely
+- **Facts**: each number with the query that produced it and the row count. Every count
+  labeled `events` or `users`, because they are different numbers
+- **Exclusions applied**: the `confirmed` rules from `entities.md` you applied, by id,
+  plus the unfiltered number where an exclusion moved the answer
+- **Interpretation**: one or two lines on what the numbers mean, kept separate from Facts
+
+That is the whole short form. Do not pad it.
+
+**Full form.** Use it when the question crosses sources, spans time periods, or feeds a
+decision the user has said matters. Short form plus:
+
 - **Sources**: each source queried, with its Readiness and Last verified date
-- **Time range**: real dates. "Last 30 days" is resolved before
-  reporting, and the timezone named is the one the events are stored in
+- **Time range**: real dates. "Last 30 days" is resolved before reporting, and the
+  timezone named is the one the events are stored in
 - **Filters**: every filter applied, verbatim
-- **Exclusions applied**: every `confirmed` rule from `entities.md` applied, cited by
-  id, plus the unfiltered number where the exclusion moved the answer. Any `unconfirmed`
-  rule is listed separately as not applied, with what it would have changed. An
-  unconfirmed rule applied silently is a defect
-- **Facts**: numbers only, each with the query that produced it and the row count
-- **Interpretation**: what the facts might mean, kept strictly separate from Facts
 - **Confidence and gaps**: what is uncertain, what is missing, what would change the
   conclusion
 - **Recommended next check**: the single check that would most reduce the uncertainty
+
+Any `unconfirmed` rule you did not apply is named in `Exclusions applied` in either shape,
+with what it would have changed. An unconfirmed rule applied silently is a defect. The
+client-side undercount note belongs in the short form too, in one line.
+
+**Mandatory in both shapes:** read `knowledge-base/entities.md` before the first query,
+and state which exclusions you applied. Skipping that is the one omission that silently
+corrupts every number in the report, and it is the first thing that gets cut under time
+pressure. Everything else on this page is shape.
 <!-- CORE:END -->
 
 ## Process
 
 1. Read `knowledge-base/entities.md`. First, before anything. If it does not define a rule
-   for a case you hit, for example a new internal email domain, stop and ask. Do not
-   invent the rule.
+   for a case you hit, for example a new internal email domain, do not invent the rule.
+   Say what is undefined, say what you assumed instead, put both in the output, and carry
+   on. An assumption a reader can see and overrule beats a question that stalls them.
 
-2. Read `sources/sources.md`. Confirm the source is `ready`. Confirm the Last verified
-   date is recent enough to matter, and say the date in the output.
+2. Read `sources/sources.md`. Note the Readiness state and the Last verified date, and say
+   both in the output. A source that is not `ready` is queried anyway, with one line
+   saying it is unverified.
 
 3. Read `schema/<source>/schema.md` for the event names and properties you need. If any
    is missing, that is drift. Run `refresh-schema` and say so. Do not guess a name.
@@ -126,8 +156,9 @@ Bound by **C-03**, **C-04**, **C-05**, **C-06**, **C-08**, **C-10**, **C-11**, *
    same filters. A mismatch is a finding, not a rounding issue.
 
 10. Write the report to `reports/YYYY-MM-DD-<topic>.md` following
-    `reports/_template/report.md`, with every required field above. Append assumptions to
-    `log.md`.
+    `reports/_template/report.md`, in whichever of the two shapes above fits. Append
+    assumptions to `log.md`. `./evals/check-output.sh <path>` will tell you what it
+    noticed about the shape. It is a lint, not a gate, so read it and decide.
 
 ## Failure modes
 

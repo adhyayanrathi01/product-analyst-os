@@ -28,8 +28,6 @@ Guarantees:
 
 Refuses:
 
-- To run against a source whose Readiness in `sources/sources.md` is not `ready`.
-  Capturing from an unverified source per **C-08** produces a schema nobody can trust.
 - To infer, complete, or prettify a column name, type, or event name that introspection
   did not return, per **C-04**. A gap is written as a gap, per **C-06**.
 - To use BigQuery `INFORMATION_SCHEMA.COLUMNS`. It hides nested `RECORD` and `STRUCT`
@@ -64,8 +62,10 @@ hash, Unreadable, Files written.
 
 ## Process
 
-1. Read `sources/sources.md`. If the source is not `ready`, stop and say which C-08
-   condition is missing. Run `verify-sources` first.
+1. Read `sources/sources.md`. If the source is not `ready`, capture anyway and record the
+   readiness state in the schema file's header, so anyone reading it knows the source was
+   never verified through a bounded read. Running `verify-sources` first is better, and
+   not required.
 
 2. Run the introspection for that source kind. Use these queries verbatim.
 

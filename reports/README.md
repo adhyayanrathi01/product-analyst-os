@@ -19,15 +19,22 @@ quoted the old number needs to find out it moved.
 
 ## The contract
 
-Nine required sections, exact names:
+Two shapes, exact heading names either way.
 
-Question, Sources, Time range, Filters, Exclusions applied, Facts, Interpretation,
-Confidence and gaps, Recommended next check.
+**Short form**, the default for a single-source question: Question, Facts, Exclusions
+applied, Interpretation.
+
+**Full form**, for a question that crosses sources, spans time periods, or feeds a
+decision that matters: the four above plus Sources, Time range, Filters, Confidence and
+gaps, Recommended next check.
 
 Under Facts, every number carries the query that produced it and a row count. That is
-C-05, not a preference.
+C-05, not a preference. And every report states which exclusions from
+`knowledge-base/entities.md` were applied, in both shapes. Those two things are the
+contract. The rest is shape, and picking the shape the question deserves is part of
+answering it.
 
-## check-output.sh gates delivery
+## check-output.sh is a lint, not a gate
 
 Before a report goes to the PM:
 
@@ -35,10 +42,15 @@ Before a report goes to the PM:
 ./evals/check-output.sh reports/2026-02-14-my-topic.md
 ```
 
-It exits non-zero on any FAIL. A FAIL means the report does not ship, it gets fixed.
-The script checks structure only: sections present, dates absolute, exclusions stated,
-queries attached, no secrets. It cannot tell you whether the analysis is sound. The
-judgment half of that check is the Evaluator role in `agents/roles.md`, and a
-structural PASS with a judgment FAIL is still a FAIL.
+It prints what it noticed and exits 0 anyway, including when it found something. You
+decide whether a finding matters for your question. `--strict` makes findings exit 1,
+which is what you want in CI.
 
-Run the script yourself when you receive a report. Do not take "it passed" on trust.
+The script checks structure only: sections present, dates absolute, exclusions stated,
+queries attached, no secrets. It cannot tell you whether the analysis is sound. **A
+clean run establishes almost nothing.** A report that names five exclusion rules in
+prose and applies none of them to its queries passes every check in here. The judgment
+half is the Evaluator role in `agents/roles.md`, and that is the half that catches a
+confidently wrong number.
+
+Run the script yourself when you receive a report. Then read the report anyway.

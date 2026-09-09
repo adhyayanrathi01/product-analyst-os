@@ -11,8 +11,8 @@ Do not preload them.
 |---|---|---|
 | `AGENTS.md` | Every operating rule | Always, first |
 | `CHARTER.md` | 12 immutable clauses. Read, never write | Always |
-| `knowledge-base/entities.md` | Grain, active definition, exclusion rules, confirmed joins | Before any query, every time |
-| `sources/sources.md` | Which sources are ready, and since when | Before touching a source |
+| `knowledge-base/entities.md` | Grain, active definition, exclusion rules, confirmed joins | Before any query, every time. The one read that is not optional |
+| `sources/sources.md` | How far each source has been verified, and since when | Before touching a source |
 | `task.md` | Current state, blockers, next action | Start of a session |
 
 ## Root
@@ -27,7 +27,7 @@ Do not preload them.
 | `task.md` | Current work, blockers, next action |
 | `log.md` | What was done, assumed, and left unverified. Append-only |
 | `setup.sh` | First-run setup and `--check` health check. Never installs, never touches a secret |
-| `VERSION` | 0.1.0 |
+| `VERSION` | 0.2.0 |
 | `.env.example` | Every env var name, grouped by source. Names only |
 | `.gitignore` | Keeps `.env`, secrets and captured schema out of git |
 
@@ -83,21 +83,21 @@ You fill these in. The agent reads them and never writes them. It proposes a dif
 | Skill | Purpose | Refuses |
 |---|---|---|
 | `skills/setup/connect-sources/` | Choose and configure sources | To touch a credential value |
-| `skills/setup/verify-sources/` | One bounded read per source, then set Readiness | To call a source ready on anything but an observed read |
+| `skills/setup/verify-sources/` | One bounded read per source, then set Readiness. Records, does not gate | To call a source ready on anything but an observed read |
 | `skills/schema/capture-schema/` | First-run schema capture | To write a name or type introspection did not return |
 | `skills/schema/refresh-schema/` | Drift detection and diff. The one skill that legitimately delegates | To resolve a removed column to a similar added one and call it a rename |
 | `skills/analytics/analyze-frontend/` | Events: funnels, retention, activation, adoption | To report event volume as user count |
-| `skills/analytics/analyze-backend/` | Entities: accounts, users, revenue, cohorts | To count without declaring grain, or join on an unconfirmed identifier |
+| `skills/analytics/analyze-backend/` | Entities: accounts, users, revenue, cohorts | To join on an unconfirmed identifier, or to write |
 | `skills/AGENTS.md` | Folder rules, the CORE fence convention |  |
 
 ## Reports and evaluation
 
 | Path | Description |
 |---|---|
-| `reports/README.md` | Naming, and that `check-output.sh` gates delivery |
-| `reports/_template/report.md` | The 9 required sections, with good and bad examples |
+| `reports/README.md` | Naming, and the two report shapes |
+| `reports/_template/report.md` | Both report shapes, short and full, with worked examples of each |
 | `reports/YYYY-MM-DD-<topic>.md` | Output, one file per question |
-| `evals/check-output.sh` | Deterministic gate: required sections, absolute dates, exclusions stated, no leaked secrets. `--self-test` proves it works |
+| `evals/check-output.sh` | Advisory lint: sections for the shape used, absolute dates, exclusions stated, no leaked secrets. Exits 0 on findings, `--strict` to fail a build, `--self-test` proves it works |
 | `evals/test-guardrails.sh` | Proves the PreToolUse guard fails when it should, 19 cases |
 
 ## Docs
@@ -110,5 +110,7 @@ You fill these in. The agent reads them and never writes them. It proposes a dif
 
 ## Sources registry status
 
-All 7 sources ship `blocked`. That is correct for a fresh clone, not a failure. A source
-becomes `ready` only after `verify-sources` observes one bounded read, per CHARTER C-08.
+All 7 sources ship `blocked`. That is correct for a fresh clone, not a failure, and it
+does not stop you querying one. A source becomes `ready` only after `verify-sources`
+observes one bounded read, per CHARTER C-08. Until then an answer drawn from it says in
+one line that the source is unverified.

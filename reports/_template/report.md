@@ -1,13 +1,35 @@
 # <one-line question, as the PM asked it>
 
 Copy this file to `reports/YYYY-MM-DD-<topic>.md` and fill it in. Delete the guidance
-lines as you go. Run `./evals/check-output.sh <path>` before delivering. A missing
-required section is an incomplete output, not a style choice.
+lines as you go.
 
-The nine `##` headings below are required and their names are fixed. The checker greps
-for them literally.
+## Two shapes. Pick one.
+
+**Short form** is the default for a single-source question. Four headings:
+
+Question, Facts, Exclusions applied, Interpretation.
+
+**Full form** is for a question that crosses sources, spans time periods, or feeds a
+decision the reader has said matters. Nine headings, the four above plus:
+
+Sources, Time range, Filters, Confidence and gaps, Recommended next check.
+
+Heading names are fixed either way, because `./evals/check-output.sh` greps for them
+literally. Run it before delivering. It is a lint, not a gate: it tells you what it
+noticed and exits 0 anyway, so read the findings and decide. `--strict` makes findings
+exit 1, for CI.
+
+**One thing is not optional in either shape.** Read `knowledge-base/entities.md` before
+you query, and state which exclusions you applied. That is the one step whose omission
+silently corrupts every number in the report.
+
+A short-form example is at the bottom of this file, after the full-form one. Do not
+reach for the full form to look thorough. A four-heading answer to a one-source question
+is the right answer, and padding it buries the number.
 
 ---
+
+## The full form, heading by heading
 
 ## Question
 
@@ -36,8 +58,8 @@ write it here.
 - Good: "Cohort window 2025-11-01 to 2025-11-30 UTC. Outcome window runs to
   2025-12-28 UTC, 28 days after the last cohort day."
 - Bad: any phrase naming a period relative to today rather than a date. C-05 requires
-  absolute dates, and `check-output.sh` fails the report on them. The exact phrases it
-  rejects are listed at the bottom of this template.
+  absolute dates, and `check-output.sh` flags them. The exact phrases it looks for are
+  listed at the bottom of this template.
 
 If the window is not the same for every number, say so here and repeat the window
 next to each number in Facts.
@@ -63,10 +85,9 @@ the effect where it is material. C-10 makes this mandatory.
   E-7 bots. Applied. E-6 test-name heuristic not applied, it is unconfirmed and it
   moves the count by 140. Both numbers are in Facts. Unfiltered signups 12,400,
   after exclusions 9,850."
-- Bad: the single word "none". That fails the checker. If you genuinely applied no
-  exclusion rules, say so and give the reason in the same sentence: "No exclusion
-  rules applied, because this is a raw table count used to size a backfill, not a
-  product number."
+- Bad: the single word "none". If you genuinely applied no exclusion rules, say so and
+  give the reason in the same sentence: "No exclusion rules applied, because this is a
+  raw table count used to size a backfill, not a product number."
 
 ## Facts
 
@@ -138,7 +159,7 @@ One query or one experiment, specific enough to run. Not a roadmap.
 
 ---
 
-## Worked mini-example
+## Worked example, full form
 
 Everything below is an EXAMPLE for a fictional company called Nimbus Freight, which
 does not exist. It is short on purpose. A real report carries more facts.
@@ -203,7 +224,53 @@ paid signups are flat and organic fell, the ad spend is not the thing to cut.
 
 ---
 
-## Relative-date phrases the checker rejects in Time range
+## Worked example, short form
+
+Same fictional company. Same rigor, one source, no decision riding on it. This is what
+most questions should look like. Four headings, no padding, and the exclusions and the
+query are still there because those are what make the number checkable.
+
+````markdown
+# How many accounts signed up in January 2026?
+
+## Question
+New accounts created in January 2026. Grain: account, `accounts.id`, per
+`entities.md` section 1.
+
+## Facts
+January 2026 signups: **1,131 accounts**. Row count: 1.
+
+```sql
+SELECT COUNT(*) AS accounts FROM accounts
+WHERE created_at >= TIMESTAMP '2026-01-01 00:00:00+00'
+  AND created_at <  TIMESTAMP '2026-02-01 00:00:00+00'
+  AND is_internal IS NOT TRUE          -- E-3
+  AND account_type <> 'demo'           -- E-4
+  AND deleted_at IS NULL               -- E-9
+LIMIT 10;
+```
+
+Unfiltered, the same window returns 1,410 accounts.
+
+## Exclusions applied
+E-3 internal flag, E-4 demo, E-9 soft delete. E-1 and E-2 are `users`-grain and
+account-id rules that remove nothing from this window, and are not in the clause.
+E-6 not applied, it is unconfirmed, and it would remove a further 19 accounts.
+`postgres-replica` is `blocked` in `sources/sources.md`, so nobody has verified this
+source through a bounded read.
+
+## Interpretation
+Down 6.1% on December's 1,204. That sits inside the 2025 month-to-month spread, so I
+would not read a trend from two points.
+````
+
+Note what is still in there: the query, the exclusion ids, the unfiltered comparison,
+absolute dates with an offset, and the readiness caveat in one line. What is gone is
+five headings that would have repeated those same facts in other words.
+
+---
+
+## Relative-date phrases the checker flags in Time range
 
 Resolve each one to absolute dates before writing it: the phrases meaning the
 previous 30 days, the previous week, the previous month, "recently", and

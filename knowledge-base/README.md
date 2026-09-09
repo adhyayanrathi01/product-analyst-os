@@ -28,7 +28,7 @@ in this folder, that is a defect.
 
 ## Fill them in this order
 
-**1. `entities.md`. This one blocks everything.**
+**1. `entities.md`. Everything else is downstream of this one.**
 
 Until the grain, the active definition, and the exclusion rules exist, every number
 the agent produces is unfiltered and counted at an unknown unit. That is worse than
@@ -66,8 +66,9 @@ row the first time a case actually happens. Record the date in the change log.
 These files decay. A new internal domain, a renamed event, a settled argument that
 nobody wrote down.
 
-- When the agent hits a case with no rule, it stops and asks. Answer by editing the
-  file, not by answering in chat. The chat answer is gone next session.
+- When the agent hits a case with no rule, it says so in the output and states what it
+  assumed. That line is your prompt to add the rule here. Answer by editing the file,
+  not by answering in chat. The chat answer is gone next session.
 - Log every edit in the `entities.md` change log, including which past reports the
   edit invalidates.
 - Reread `metrics.md` whenever a number in a report surprises you. The surprise is

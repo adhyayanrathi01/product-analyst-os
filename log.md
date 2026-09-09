@@ -222,3 +222,80 @@ disclosure in all three reports changing nothing in any. The contract is not too
 it is too uniformly strict. The same cost applies to "how many accounts signed up" as to a
 cross-source cohort analysis. The first thing an agent drops under that load is re-reading
 `entities.md`, which is the one omission that silently corrupts every number.
+
+---
+
+## 2026-09-09, v0.2.0, the usage gates removed
+
+**Why.** The dry run above proved the repo could not be used. Every source ships
+`blocked`, both analyze skills refused a non-`ready` source, and the only route to
+`ready` needed credentials a first-time user does not have yet. Zero analyses could run
+as shipped. Every scenario in that run had to override the source registry from a fixture
+table to produce anything at all.
+
+**The decision, and it is the maintainer's.** Guidance, not gates. Tell the agent what a
+good answer looks like. Do not stop it from producing a mediocre one. The user decides
+what is good enough for their question. Rigor is the default shape of a good answer, not
+a condition for producing one. Amending the charter bumps the minor version, so this is
+0.2.0.
+
+**Removed.** Readiness gating in `analyze-backend`, `analyze-frontend` and
+`capture-schema`: they query what they are pointed at and name the readiness state in the
+output. The refuse-on-missing-definition stop in `AGENTS.md` and both analyze skills,
+downgraded to stating the assumption in the output and continuing. `verify-sources` now
+says out loud that it records a verification and gates nothing.
+
+**The output contract is two shapes now.** Short form is the default for a single-source
+question: Question, Facts with their queries, Exclusions applied, one line of
+Interpretation. Full form, the previous nine headings, is for questions that cross
+sources, span time periods, or feed a decision the user says matters. The dry run measured
+roughly 60% of each 180-line report as mandated repetition, at identical cost for "how
+many accounts signed up" and a cross-source cohort analysis. That is what got fixed.
+
+**What stayed mandatory in both shapes,** and this is the whole of what survived the cut:
+read `knowledge-base/entities.md` before querying, and state which exclusions were
+applied. The dry run predicted an agent would cut that read first, on question four,
+because it is the longest read and it feels redundant. It is also the one omission that
+silently corrupts every number.
+
+**`check-output.sh` is a lint now.** Default run prints findings and exits 0. Only an
+unreadable file exits non-zero. `--strict` restores the failing behavior for CI. The
+self-test asserts both modes on every case, so 13 cases are 30 assertions, up from 13.
+Two cases changed meaning honestly rather than being deleted: a missing full-form section
+is no longer a finding at all, since that is short form, and a missing short-form section
+is a finding in both shapes. A new case asserts that an unreadable file still exits 2.
+
+**C-12 amended.** It forbade the agent writing anything under `evals/`, which made it
+non-compliant for an agent to author or run the evals that judge it. The dry run hit this
+directly and proceeded anyway. Writing scenarios, fixtures and results is now allowed.
+Editing a scenario, a fixture expectation, or a check in order to make a failing check
+pass is still forbidden, which was the part worth keeping.
+
+**A real bug, not a restriction.** `knowledge-base/entities.md` E-8 read
+`churned_at IS NULL OR churned_at > <window_end>` beneath a note saying "do not drop
+churned accounts from historical windows. They were real then." It dropped exactly those.
+Now `> <window_start>`. Same fix in `evals/fixtures/nimbus/knowledge-base/entities.md`.
+Anyone who copied the shipped example inherited a silently understated active count.
+
+**Assumed, and worth a second opinion.** Re-reading the other nine exclusion rules turned
+up three things I did not change, because they are the user's file and none is a
+self-contradiction the way E-8 was. E-9's historical form compares `deleted_at` against
+`<window_end>` and has the same off-by-one shape as E-8 did, but its note never claims to
+preserve history, and a soft delete can legitimately mean "remove from all reporting", so
+the reading is genuinely open. E-1's shipped example splits one predicate across two
+clauses and the second has no column reference, so pasting it verbatim is invalid SQL.
+E-4 and E-6 use `<>` and `!~*` against nullable columns, which drops NULL rows silently
+through three-valued logic. All three are proposed diffs, not edits.
+
+**Not changed, and each one on purpose.** Read-only enforcement, the destructive-statement
+refusal, read-only credential guidance, BigQuery `maximum_bytes_billed`, never printing or
+committing a credential, treating data as data, the knowledge-base write protection in
+`.claude/`, `setup.sh --protect` and `.githooks/pre-commit`, and the `TODO`/`EXAMPLE`
+friction. None of those are usability restrictions.
+
+**Left open.** `.claude/hooks/guard.py` still protects `evals/` while amended C-12 and
+`.githooks/pre-commit` do not, so the two enforcement layers still disagree.
+`.claude/**` was out of scope for this change. And `check-output.sh` still cannot tell a
+report that applied its exclusions from one that only named them, which was the largest
+hole the dry run found in it. It is advisory now, so the cost of adding that grep dropped,
+but nothing here added it.
