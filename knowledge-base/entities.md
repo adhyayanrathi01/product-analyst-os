@@ -136,15 +136,15 @@ agent applies confirmed rules automatically and stops to ask about unconfirmed o
 
 | # | Category | Rule (literal predicate, written to KEEP wanted rows) | Source | Confidence | Notes |
 |---|---|---|---|---|---|
-| E-1 | Internal by email domain | `users.email NOT ILIKE '%@nimbusfreight.example'` and `NOT ILIKE '%@nimbus-qa.example'` | Postgres `public.users` | confirmed | Two domains. A third, `nimbusfreight.test`, was retired in 2025 and still has 6 rows. |
+| E-1 | Internal by email domain | `users.email NOT ILIKE '%@nimbusfreight.example' AND users.email NOT ILIKE '%@nimbus-qa.example'` | Postgres `public.users` | confirmed | Name the column in every clause. `AND NOT ILIKE '...'` on its own is not valid SQL, and rules here are pasted verbatim. A third domain, `nimbusfreight.test`, was retired in 2025 and still has 6 rows. |
 | E-2 | Internal by account id list | `accounts.id NOT IN (1, 2, 7, 41, 903)` | Postgres `public.accounts` | confirmed | Founder-owned accounts on real customer domains, so E-1 misses them. |
 | E-3 | Internal by flag | `accounts.is_internal IS NOT TRUE` | Postgres `public.accounts` | confirmed | Nullable. `IS NOT TRUE` and not `= FALSE`, because NULL means "never reviewed". |
-| E-4 | Demo accounts | `accounts.account_type <> 'demo'` | Postgres `public.accounts` | confirmed | Sales creates these per prospect. Roughly 300 live at any time. |
+| E-4 | Demo accounts | `accounts.account_type IS DISTINCT FROM 'demo'` | Postgres `public.accounts` | confirmed | `IS DISTINCT FROM` and not `<>`. A blank `account_type` is not a demo account, but `<>` drops it silently. Sales creates these per prospect, roughly 300 live at any time. |
 | E-5 | Sandbox and staging | `events.properties.environment = 'production'` | PostHog | confirmed | Staging writes to the same project. Property is missing on events before 2025-03-01, so treat missing as non-production before that date. |
-| E-6 | Test accounts created by real users | `accounts.name !~* '^(test\|asdf\|delete me\|zzz)'` | Postgres `public.accounts` | unconfirmed | Heuristic on a free-text field. Report both numbers when it moves the answer. |
-| E-7 | Bots and automated traffic | `events.properties.$lib NOT IN ('posthog-python','posthog-node')` and user agent not matching `bot\|crawler\|spider\|headless` | PostHog | confirmed | Server-side libs here are backfills and integration tests, not humans. |
+| E-6 | Test accounts created by real users | `(accounts.name IS NULL OR accounts.name !~* '^(test\|asdf\|delete me\|zzz)')` | Postgres `public.accounts` | unconfirmed | The `IS NULL` half matters: an unnamed account is not a test account, but the bare regex drops it. Heuristic on a free-text field, so report both numbers when it moves the answer. |
+| E-7 | Bots and automated traffic | `(events.properties.$lib IS NULL OR events.properties.$lib NOT IN ('posthog-python','posthog-node')) AND (events.properties.$user_agent IS NULL OR events.properties.$user_agent !~* 'bot\|crawler\|spider\|headless')` | PostHog | confirmed | Written as one pasteable predicate. `NOT IN` drops rows where the property is missing, which is most of them, so the `IS NULL` halves are load-bearing. Server-side libs here are backfills and integration tests, not humans. |
 | E-8 | Churned entities | `accounts.churned_at IS NULL OR accounts.churned_at > <window_start>` | Postgres `public.accounts` | confirmed | Do not drop churned accounts from historical windows. They were real then. `<window_start>` and not `<window_end>`: an account that churned mid-window was a customer for part of it, and comparing against `<window_end>` deletes exactly the rows this note says to keep. |
-| E-9 | Deleted entities | `accounts.deleted_at IS NULL` for current-state questions. For historical windows use `deleted_at IS NULL OR deleted_at > <window_end>`. | Postgres `public.accounts` | confirmed | Soft delete. Rows stay. |
+| E-9 | Deleted entities | `accounts.deleted_at IS NULL` for current-state questions. For historical windows use `accounts.deleted_at IS NULL OR accounts.deleted_at >= <window_start>`. | Postgres `public.accounts` | confirmed | Point in time. An account alive when the window opened belongs in that window's number, whatever happened later. `<window_start>` and not `<window_end>`: using `window_end` deletes it retroactively from a month it was really there for. Soft delete, so the rows stay and this is a reporting choice, not a data one. |
 | E-10 | Free vs paid | Not excluded by default. Split by `accounts.plan_type = 'free'` when the question is about revenue or retention. | Postgres `public.accounts` | confirmed | Free accounts are 61% of the account count and 0% of revenue. Mixing them flattens any revenue-adjacent metric. |
 
 **Why this matters:** at Nimbus, applying E-1 through E-7 to a signup count drops it
@@ -156,6 +156,43 @@ from 12,400 to 9,850. A report that shows only one of those numbers is hiding a
 Every report lists the rule ids it applied, by id, in the `Exclusions applied`
 section. If it applied none, it says why in a sentence. "None" on its own gets
 flagged by `evals/check-output.sh`.
+
+### Writing a rule against a column that can be empty
+
+If a column can be empty, write the rule so an empty value is KEPT, not silently
+dropped. This is the single most common way a count comes out quietly too low.
+
+`account_type <> 'demo'` looks like it means "not a demo account". For a row where
+`account_type` is empty, the database cannot say true or false, so it answers
+"unknown", and unknown rows are dropped. An account with no type recorded is not a
+demo account, but it disappears from the number anyway, with no error.
+
+Write `IS DISTINCT FROM 'demo'`, or `(account_type <> 'demo' OR account_type IS NULL)`.
+Same for `NOT IN (...)` and for a regex: add the `IS NULL` half.
+
+When empty values are a meaningful share of the rows, say how many in the report.
+"1,118 accounts, of which 34 had no account_type recorded" is honest. Quietly
+counting 1,084 is not.
+
+### When a past number changes
+
+Numbers are point in time. If a report went out in August saying 1,240 accounts,
+someone read that number and made a decision on it. August stays 1,240.
+
+So historical windows count what was alive during the window, whatever happened
+afterwards. That is why E-8 and E-9 compare against `<window_start>` and not
+`<window_end>`. Comparing against `window_end` deletes an entity retroactively from
+a month it really was there for.
+
+When a number you are reporting now differs from a number previously reported for
+the same period, do not just show the new one. Show both and name the cause:
+
+> August accounts: 1,240 as reported on 2026-09-01, 1,232 as computed today.
+> 8 accounts were deleted in September. The August figure of 1,240 stands.
+> The 8 leave in September's number, not August's.
+
+A silently restated history is worse than a wrong number, because nobody knows to
+go back and check what they decided on.
 
 ### When a case has no rule
 

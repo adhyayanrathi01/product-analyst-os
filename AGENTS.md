@@ -52,6 +52,14 @@ Everything else needs the user to ask first. Specifically:
   it, and where it would move the answer materially, report both numbers and let the user
   promote it to `confirmed`. Auto-applying a guess over a free-text field deletes rows on
   a hunch, which is the failure C-04 exists to prevent.
+- An empty value must not silently drop a row. `type <> 'demo'` answers "unknown" for an
+  empty `type`, and unknown rows disappear from the count with no error. Use
+  `IS DISTINCT FROM`, or add the `IS NULL` half. Report how many values were empty when
+  it is a meaningful share.
+- Numbers are point in time. A historical window counts what was alive during it,
+  whatever happened afterwards. If a number you report now differs from one previously
+  reported for the same period, show both and name the cause. A silently restated history
+  is worse than a wrong number, because nobody knows to recheck the decision they made.
 - Rules in `entities.md` are written to KEEP wanted rows, so they `AND` together directly
   into a `WHERE` clause. Never paste one into a clause that selects rows to remove. That
   inverts the filter, keeps exactly the rows you meant to drop, and nothing errors.

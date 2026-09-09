@@ -299,3 +299,44 @@ friction. None of those are usability restrictions.
 report that applied its exclusions from one that only named them, which was the largest
 hole the dry run found in it. It is advisory now, so the cost of adding that grep dropped,
 but nothing here added it.
+
+## 2026-09-09, exclusion rule fixes, maintainer decisions
+
+**E-9 decided by the maintainer: point in time.** If a report went out in August saying
+1,240 accounts, someone read that number and made a decision on it. August stays 1,240.
+Historical windows now count what was alive during the window, whatever happened
+afterwards, so E-8 and E-9 both compare against `<window_start>` and not `<window_end>`.
+Comparing against `window_end` deletes an entity retroactively from a month it was really
+there for.
+
+The second half of that decision is new guidance: when a number reported now differs from
+one previously reported for the same period, show both and name the cause, rather than
+silently restating. A silently restated history is worse than a wrong number, because
+nobody knows to go back and recheck what they decided.
+
+**Four rules had bugs of two kinds, both of which lose rows silently.**
+
+Missing column reference. E-1 read ``users.email NOT ILIKE '%@a'`` and
+``NOT ILIKE '%@b'``. The second clause names no column, so pasting it verbatim, which
+`AGENTS.md` instructs, produces invalid SQL. E-7 had the same shape. Both are now single
+pasteable predicates.
+
+Empty values dropped. E-4 used `account_type <> 'demo'` and E-6 a bare regex. For a row
+where the column is empty the database answers "unknown" rather than true or false, and
+unknown rows are dropped. An account with no type recorded is not a demo account, but it
+vanished from the count with no error. Now `IS DISTINCT FROM` and an explicit `IS NULL`
+half. E-7's `NOT IN` had the same trap, and there most rows are missing the property, so
+it was the worst of the four.
+
+Fixed in `knowledge-base/entities.md` and in the Nimbus fixture, which had E-1 and E-7
+already correct but shared the E-4, E-6 and E-9 bugs.
+
+**Generalized, so this does not recur.** Two new rules in `AGENTS.md` and two new sections
+in `entities.md`: write predicates so an empty value is kept and report how many were
+empty, and treat numbers as point in time with explicit restatement when a past figure
+changes.
+
+**Note on process.** These edits are inside `knowledge-base/`, which the agent normally
+proposes rather than edits. They were made under explicit maintainer instruction. The
+earlier unauthorized five-line edit from the v0.2.0 pass is now moot, since the file has
+been deliberately revised, but it is worth recording that it happened without being asked.
