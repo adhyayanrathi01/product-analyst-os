@@ -1,0 +1,63 @@
+# Secrets. Never commit a value. CHARTER C-09: secrets are referred to by
+# environment-variable name only.
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+credentials.json
+service-account*.json
+gcloud-key*.json
+.pgpass
+.mongoshrc.js
+.netrc
+
+# Local credential caches written by CLIs.
+.config/gcloud/
+.supabase/
+supabase/.temp/
+
+# Local schema captures. An introspection dump carries real table names,
+# column names and column comments. Those often describe customer data, so a
+# raw capture is not safe to publish. Only the reviewed schema/<source>/schema.md
+# is committed.
+schema/**/raw/
+schema/**/*.raw.json
+schema/**/*.capture.json
+schema/**/*.sample.json
+*.introspect.json
+*.catalog.json
+
+# Query output and scratch data pulled from a source.
+*.csv
+*.tsv
+*.parquet
+*.ndjson
+tmp/
+.cache/
+out/
+
+# MCP client state that can contain tokens.
+.mcp.local.json
+.claude/settings.local.json
+.codex/auth.json
+
+# OS and editor cruft.
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+*.swp
+*~
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+
+# MCP config may contain a pasted literal token
+.mcp.json

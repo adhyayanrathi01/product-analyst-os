@@ -1,0 +1,49 @@
+{
+  "$comment": "Rules evaluate deny, then ask, then allow. First match wins. Specificity does not change ordering, so a broad deny cannot carry exceptions. Path rules work on Read and Edit only: a Write(path) rule is accepted silently and never consulted, which is why guard.py exists.",
+  "permissions": {
+    "defaultMode": "default",
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Edit(./CHARTER.md)",
+      "Edit(./AGENTS.md)",
+      "Edit(./CLAUDE.md)",
+      "Edit(./setup.sh)",
+      "Edit(./.claude/**)",
+      "Edit(./.codex/**)",
+      "Edit(./knowledge-base/**)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "WebFetch"
+    ],
+    "allow": [
+      "Read(./**)",
+      "Edit(./reports/**)",
+      "Edit(./schema/**)",
+      "Edit(./sources/sources.md)",
+      "Edit(./task.md)",
+      "Edit(./log.md)",
+      "Edit(./index.md)",
+      "Bash(./setup.sh --check)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+#!/bin/sh
+# Refuses a commit that touches a protected path.
+#
+# chmod stops a write. This stops the write from reaching history when someone
+# ran chmod u+w first. Wired by ./setup.sh --protect, which sets
+# git config core.hooksPath .githooks.
+#
+# POSIX sh on purpose, so it runs under dash and under the bash 3.2 that ships
+# with macOS. No arrays, no [[ ]], no local.
+set -u
+
+if [ "${PAOS_ALLOW_PROTECTED:-}" = "1" ]; then
+  echo "pre-commit: PAOS_ALLOW_PROTECTED=1 set, protected paths allowed through."
+  exit 0
+fi
+
+# On the first commit there is no HEAD, so diff against the empty tree.
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+  against=HEAD
+else
+  against=$(git hash-object -t tree /dev/null)
+fi
+
+touched=$(git diff-index --cached --name-only "$against" -- | grep -E \
+  '^(CHARTER\.md|AGENTS\.md|CLAUDE\.md)$|^(knowledge-base|\.claude)/|^skills/.+/SKILL\.md$' \
+  || true)
+
+if [ -z "$touched" ]; then
+  exit 0
+fi
+
+echo "pre-commit: refused. This commit touches protected paths:"
+echo "$touched" | sed 's/^/  /'
+cat <<'EOF'
+
+These files hold the rules the agent operates under, or your own definitions of
+active, demo and internal. An analysis task never commits them.
+
+If you are the user, editing your own knowledge base or amending the charter on
+purpose, say so and commit again:
+
+  PAOS_ALLOW_PROTECTED=1 git commit -m "kb: define active at account grain"
+
+If you are an agent, stop and report this to the user. Do not set the variable
+and do not run chmod to get around it. Being refused here is the rule working.
+EOF
+exit 1

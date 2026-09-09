@@ -1,0 +1,62 @@
+# MCP servers for Codex. Append the blocks you need to ~/.codex/config.toml.
+#
+# Do not paste this into .codex/config.toml in this repo. That file holds the
+# sandbox and approval settings and is never edited as part of an analysis task.
+#
+# Placeholders are env var names, never values (CHARTER C-09). Codex does not
+# expand ${VAR} inside a TOML string in every version, so where a value must be
+# literal, export it in your shell first or substitute it by hand into your own
+# ~/.codex/config.toml. Never commit the substituted file.
+#
+# Keep only the sources you actually connected. An unreachable server produces a
+# connect error on every session start.
+
+[mcp_servers.posthog]
+url = "${POSTHOG_MCP_URL}"
+# Read-only header plus a project-scoped personal API key. Both layers.
+http_headers = { Authorization = "Bearer ${POSTHOG_API_KEY}", "x-posthog-read-only" = "true", "x-posthog-project-id" = "${POSTHOG_PROJECT_ID}" }
+
+# OAuth 2.1 with PKCE S256, run by the client at first connect. Set the URL to
+# your region: mcp.mixpanel.com, mcp-eu.mixpanel.com or mcp-in.mixpanel.com.
+# 600 MCP requests per hour per user.
+[mcp_servers.mixpanel]
+url = "${MIXPANEL_MCP_URL}"
+
+# OAuth 2.0. Read-only comes from a Viewer-tier role, not from a flag. Every
+# Amplitude role grants USE_MCP_READ, and Member, Manager and Admin also grant
+# USE_MCP_WRITE.
+[mcp_servers.amplitude]
+url = "${AMPLITUDE_MCP_URL}"
+
+# Google MCP Toolbox for Databases. The bigquery prebuilt toolset has no
+# read-only flag, so read-only is IAM: roles/bigquery.dataViewer plus
+# roles/bigquery.jobUser, never dataEditor. The bytes cap is mandatory.
+[mcp_servers.bigquery]
+command = "${TOOLBOX_BIN}"
+args = ["--prebuilt", "bigquery", "--stdio"]
+env = { BIGQUERY_PROJECT = "${BIGQUERY_PROJECT}", BIGQUERY_MAXIMUM_BYTES_BILLED = "${BIGQUERY_MAXIMUM_BYTES_BILLED}" }
+
+# Built-in Metabase MCP, Streamable HTTP, OAuth 2.0, requires AI features
+# enabled. UNVERIFIED against any specific instance version, and no API-key
+# config path is documented for it. Use the REST API with x-api-key until this
+# is confirmed on your instance.
+[mcp_servers.metabase]
+url = "${METABASE_MCP_URL}"
+
+[mcp_servers.mongodb]
+command = "npx"
+args = ["-y", "mongodb-mcp-server@latest", "--readOnly"]
+env = { MDB_MCP_CONNECTION_STRING = "${MDB_MCP_CONNECTION_STRING}", MDB_MCP_READ_ONLY = "true" }
+
+# Never use @modelcontextprotocol/server-postgres. It is archived and carries an
+# unpatched SQL injection. The GRANTs on agent_ro are the real boundary.
+[mcp_servers.postgres]
+command = "uvx"
+args = ["postgres-mcp", "--access-mode=restricted"]
+env = { DATABASE_URI = "${DATABASE_URI}" }
+
+# read_only=true makes Supabase run every query as a read-only Postgres user.
+# Do not drop it from the URL.
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=${SUPABASE_PROJECT_REF}&read_only=true"
+http_headers = { Authorization = "Bearer ${SUPABASE_ACCESS_TOKEN}" }

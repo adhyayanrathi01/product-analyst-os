@@ -1,0 +1,70 @@
+{
+  "$comment": "Paste-ready MCP servers for Claude Code. Copy the blocks you need into .mcp.json at the repo root, or into ~/.claude.json. Placeholders are env var references, never values (CHARTER C-09). Keep only the sources you actually connected: an unreachable server produces a connect error on every session start. Amplitude, Mixpanel and Metabase authenticate with OAuth handled by the client, so they carry no token here.",
+
+  "mcpServers": {
+    "posthog": {
+      "type": "http",
+      "url": "${POSTHOG_MCP_URL}",
+      "headers": {
+        "Authorization": "Bearer ${POSTHOG_API_KEY}",
+        "x-posthog-read-only": "true",
+        "x-posthog-project-id": "${POSTHOG_PROJECT_ID}"
+      }
+    },
+
+    "mixpanel": {
+      "$comment": "OAuth 2.1 with PKCE S256, run by the client at first connect. Set MIXPANEL_MCP_URL to the endpoint for your region: mcp.mixpanel.com, mcp-eu.mixpanel.com or mcp-in.mixpanel.com. 600 requests per hour per user.",
+      "type": "http",
+      "url": "${MIXPANEL_MCP_URL}"
+    },
+
+    "amplitude": {
+      "$comment": "OAuth 2.0. Read-only comes from putting the account in a Viewer-tier role, because every role grants USE_MCP_READ and Member, Manager and Admin also grant USE_MCP_WRITE. There is no read-only flag to set here. Claude Code alternative: /plugin marketplace add amplitude/mcp-marketplace",
+      "type": "http",
+      "url": "${AMPLITUDE_MCP_URL}"
+    },
+
+    "bigquery": {
+      "$comment": "Google MCP Toolbox for Databases. The bigquery prebuilt toolset has no read-only flag, so read-only is enforced by IAM: roles/bigquery.dataViewer plus roles/bigquery.jobUser, never dataEditor. BIGQUERY_MAXIMUM_BYTES_BILLED is mandatory.",
+      "command": "${TOOLBOX_BIN}",
+      "args": ["--prebuilt", "bigquery", "--stdio"],
+      "env": {
+        "BIGQUERY_PROJECT": "${BIGQUERY_PROJECT}",
+        "BIGQUERY_MAXIMUM_BYTES_BILLED": "${BIGQUERY_MAXIMUM_BYTES_BILLED}"
+      }
+    },
+
+    "metabase": {
+      "$comment": "Built-in Metabase MCP, Streamable HTTP, OAuth 2.0, requires AI features enabled. UNVERIFIED against any specific instance version, and no API-key config path is documented. Use the REST API with x-api-key until you have confirmed this works on your instance.",
+      "type": "http",
+      "url": "${METABASE_MCP_URL}"
+    },
+
+    "mongodb": {
+      "command": "npx",
+      "args": ["-y", "mongodb-mcp-server@latest", "--readOnly"],
+      "env": {
+        "MDB_MCP_CONNECTION_STRING": "${MDB_MCP_CONNECTION_STRING}",
+        "MDB_MCP_READ_ONLY": "true"
+      }
+    },
+
+    "postgres": {
+      "$comment": "Never use @modelcontextprotocol/server-postgres. It is archived and carries an unpatched SQL injection. The GRANTs on the agent_ro role are the real boundary, not --access-mode.",
+      "command": "uvx",
+      "args": ["postgres-mcp", "--access-mode=restricted"],
+      "env": {
+        "DATABASE_URI": "${DATABASE_URI}"
+      }
+    },
+
+    "supabase": {
+      "$comment": "read_only=true makes Supabase run every query as a read-only Postgres user. Do not drop it from the URL.",
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=${SUPABASE_PROJECT_REF}&read_only=true",
+      "headers": {
+        "Authorization": "Bearer ${SUPABASE_ACCESS_TOKEN}"
+      }
+    }
+  }
+}

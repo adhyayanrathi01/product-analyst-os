@@ -1,0 +1,77 @@
+{
+  "$comment": "Client-neutral MCP config for the 7 v1 sources. Most clients accept a top-level mcpServers map. If yours uses a different key or a different transport field name, keep the command, args, env, url and headers values and rename the wrapper. Placeholders are env var references, never values (CHARTER C-09). Delete the servers you did not connect.",
+
+  "mcpServers": {
+    "posthog": {
+      "transport": "http",
+      "url": "${POSTHOG_MCP_URL}",
+      "headers": {
+        "Authorization": "Bearer ${POSTHOG_API_KEY}",
+        "x-posthog-read-only": "true",
+        "x-posthog-project-id": "${POSTHOG_PROJECT_ID}"
+      },
+      "readOnlyEnforcedBy": "Personal API key scoped to Query Read, event_definition:read, property_definition:read, plus the x-posthog-read-only header."
+    },
+
+    "mixpanel": {
+      "transport": "http",
+      "url": "${MIXPANEL_MCP_URL}",
+      "auth": "OAuth 2.1 PKCE S256, or service accounts in beta",
+      "readOnlyEnforcedBy": "Scope list: projects analysis events insights segmentation retention data:read funnels flows data_definitions. No write scope in the set.",
+      "rateLimit": "600 MCP requests per hour per user"
+    },
+
+    "amplitude": {
+      "transport": "http",
+      "url": "${AMPLITUDE_MCP_URL}",
+      "auth": "OAuth 2.0",
+      "readOnlyEnforcedBy": "Viewer-tier RBAC role. Every role grants USE_MCP_READ; Member, Manager and Admin also grant USE_MCP_WRITE, so the role is the only control."
+    },
+
+    "bigquery": {
+      "transport": "stdio",
+      "command": "${TOOLBOX_BIN}",
+      "args": ["--prebuilt", "bigquery", "--stdio"],
+      "env": {
+        "BIGQUERY_PROJECT": "${BIGQUERY_PROJECT}",
+        "BIGQUERY_MAXIMUM_BYTES_BILLED": "${BIGQUERY_MAXIMUM_BYTES_BILLED}"
+      },
+      "readOnlyEnforcedBy": "IAM only. roles/bigquery.dataViewer plus roles/bigquery.jobUser, never dataEditor. The bigquery prebuilt toolset has no read-only flag."
+    },
+
+    "metabase": {
+      "transport": "http",
+      "url": "${METABASE_MCP_URL}",
+      "auth": "OAuth 2.0, requires AI features enabled on the instance",
+      "readOnlyEnforcedBy": "The group the API key was created in. View-only data access, no native query rights.",
+      "unverified": "No minimum version or plan tier stated, no API-key config path documented. Not verified against any specific instance version."
+    },
+
+    "mongodb": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "mongodb-mcp-server@latest", "--readOnly"],
+      "env": {
+        "MDB_MCP_CONNECTION_STRING": "${MDB_MCP_CONNECTION_STRING}",
+        "MDB_MCP_READ_ONLY": "true"
+      },
+      "readOnlyEnforcedBy": "DB user holding only the built-in read role on the target database. The --readOnly flag is the second layer, not the boundary."
+    },
+
+    "postgres": {
+      "transport": "stdio",
+      "command": "uvx",
+      "args": ["postgres-mcp", "--access-mode=restricted"],
+      "env": { "DATABASE_URI": "${DATABASE_URI}" },
+      "readOnlyEnforcedBy": "GRANTs on the agent_ro role. default_transaction_read_only is a client default a session can unset, so it is not a security control.",
+      "doNotUse": "@modelcontextprotocol/server-postgres is archived and carries an unpatched SQL injection."
+    },
+
+    "supabase": {
+      "transport": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=${SUPABASE_PROJECT_REF}&read_only=true",
+      "headers": { "Authorization": "Bearer ${SUPABASE_ACCESS_TOKEN}" },
+      "readOnlyEnforcedBy": "read_only=true runs every query as a read-only Postgres user, on top of the personal access token scope."
+    }
+  }
+}

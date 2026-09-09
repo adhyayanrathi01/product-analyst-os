@@ -1,0 +1,26 @@
+# Codex configuration for product-analyst-os.
+#
+# Two independent dials. Configure both. A tight sandbox with rare approvals is
+# safer than frequent approvals in an unbounded environment.
+#
+# sandbox_mode is an OS-enforced boundary, not a prompt.
+#   read-only          agent cannot write anything, including reports
+#   workspace-write    agent writes inside this repo only, network off by default
+#   danger-full-access never use this here
+#
+# workspace-write is correct for this repo: the agent needs to write reports/,
+# schema/, task.md and log.md, and must not touch anything outside the repo.
+sandbox_mode = "workspace-write"
+
+# untrusted   approve every command
+# on-request  agent asks when it needs to step outside the sandbox
+# never       no prompts, relies entirely on the sandbox
+approval_policy = "on-request"
+
+[sandbox_workspace_write]
+# Analytics sources are remote MCP endpoints and HTTPS APIs, so network is required.
+# This is the one real widening of the sandbox. The read-only credentials in .env
+# are what keep it safe, not this setting.
+network_access = true
+
+# Codex reads AGENTS.md directly. No import needed.
