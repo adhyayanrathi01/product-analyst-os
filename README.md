@@ -1,5 +1,10 @@
 # product-analyst-os
 
+[![checks](https://github.com/adhyayanrathi01/product-analyst-os/actions/workflows/checks.yml/badge.svg)](https://github.com/adhyayanrathi01/product-analyst-os/actions/workflows/checks.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![version](https://img.shields.io/badge/version-0.2.0-orange.svg)](CHANGELOG.md)
+[![harness: any](https://img.shields.io/badge/harness-Claude%20Code%20%7C%20Codex%20%7C%20any-black.svg)](AGENTS.md)
+
 A workspace that lets an AI agent answer questions about your product's usage without
 making numbers up.
 
@@ -90,6 +95,37 @@ definition of done and the order to fill things in.
 
 This friction is deliberate. Analytics without the definitions is number crunching, not
 analysis.
+
+## What it answers, and where the answers go
+
+Every answer is a file: `reports/YYYY-MM-DD-<topic>.md`. The date is when the analysis
+ran, not the period it covers. The topic names the question, not the method. Rerunning a
+question later makes a new file rather than overwriting the old one, because a PM who
+quoted last month's number needs to find out it moved.
+
+| Topic | Typical question | Skill | Example file |
+|---|---|---|---|
+| **Activation** | Do new signups reach first value, and how fast? | frontend | `2026-09-09-activation-7day-window.md` |
+| **Funnels** | Where in this flow do people fall out? | frontend | `2026-09-09-onboarding-funnel-dropoff.md` |
+| **Retention** | Who comes back, and for how long? | either | `2026-09-09-week4-retention-by-plan.md` |
+| **Feature adoption** | Who uses this feature, and did shipping it change anything? | frontend | `2026-09-09-bulk-import-adoption.md` |
+| **Event taxonomy health** | Which events are dead, duplicated, or misnamed? | frontend | `2026-09-09-event-taxonomy-audit.md` |
+| **Counts and segments** | How many real accounts, at what grain, minus which exclusions? | backend | `2026-09-09-active-accounts-august.md` |
+| **Cohorts** | How does the March cohort differ from the August one? | backend | `2026-09-09-cohort-comparison-h1.md` |
+| **Revenue and plan mix** | Where does revenue sit, and how is it moving? | backend | `2026-09-09-mrr-by-plan-tier.md` |
+| **Churn** | Who left, when, and what did they have in common? | backend | `2026-09-09-churn-drivers-q3.md` |
+| **Data quality** | Is this number wrong, and if so where did it break? | either | `2026-09-09-signup-count-discrepancy.md` |
+
+Two shapes of answer. **Short form** is four headings, Question, Facts, Exclusions
+applied, Interpretation, and it is the default for a single-source question. **Full form**
+adds Sources, Time range, Filters, Confidence and gaps, and Recommended next check, for a
+question that crosses sources, spans periods, or feeds a decision that matters.
+
+The split between the two analyze skills is by where the data lives, not by what you ask.
+`analyze-frontend` reads event tools, where the traps are ad-blocker undercount and
+mistaking event volume for user count. `analyze-backend` reads databases and warehouses,
+where the trap is confusing the account grain with the user grain, which silently
+multiplies your numbers by the average seat count.
 
 ## Sources
 

@@ -1,0 +1,48 @@
+name: checks
+
+# Runs the three suites this repo ships. The README badge points at this
+# workflow, so the badge means something. A green badge with no CI behind it
+# would be exactly the kind of claim this repo tells its agent not to make.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax check every script
+        run: |
+          for f in setup.sh evals/*.sh .githooks/pre-commit; do
+            bash -n "$f" && echo "ok  $f"
+          done
+          python3 -m py_compile .claude/hooks/guard.py && echo "ok  .claude/hooks/guard.py"
+
+      - name: Guardrails
+        run: ./evals/test-guardrails.sh
+
+      - name: Protection
+        run: ./evals/test-protection.sh
+
+      - name: Output lint self-test
+        run: ./evals/check-output.sh --self-test
+
+      - name: Workspace health
+        run: ./setup.sh --check
+
+      - name: House style
+        run: |
+          # No em dashes or en dashes anywhere. Hard rule in AGENTS.md.
+          # Matched by code point (U+2014, U+2013) rather than by the literal
+          # characters, so this file does not trip its own check.
+          if grep -rnP '[\x{2014}\x{2013}]' \
+               --include='*.md' --include='*.sh' --include='*.py' --include='*.yml' . ; then
+            echo "FAIL: em or en dash found. Use commas or periods."
+            exit 1
+          fi
+          echo "ok  no em or en dashes"

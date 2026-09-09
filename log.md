@@ -340,3 +340,23 @@ changes.
 proposes rather than edits. They were made under explicit maintainer instruction. The
 earlier unauthorized five-line edit from the v0.2.0 pass is now moot, since the file has
 been deliberately revised, but it is worth recording that it happened without being asked.
+
+## 2026-09-09, published
+
+MIT license added. The repo was public with no LICENSE file, which legally means all
+rights reserved: readable, but nobody could use or fork it. That defeats the point of a
+public template, so it was worth catching before anyone tried.
+
+CI added at `.github/workflows/checks.yml`, running all four suites plus the em dash
+check on every push. The README badge points at that workflow rather than being a static
+image. A green badge with no CI behind it would be exactly the kind of unearned claim
+this repo tells its agent not to make.
+
+README now documents the ten report topics with example filenames, and explains that the
+frontend and backend split is by where the data lives, not by what you ask.
+
+`task.md` rewritten as a cold-start handoff: what this is, how to verify it, what is
+done, ten open items grouped by what each needs, and the traps that would be easy to get
+wrong months later. The honest headline is item 10: nobody has run this against a real
+database yet. Every check so far is structural or against fixtures, and the first real
+run will find things none of it caught.
