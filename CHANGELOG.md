@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.1, 2026-09-16
+
+### Added
+
+- **A `PostToolUse` report lint hook**, `.claude/hooks/lint-report.sh`. It runs
+  `evals/check-output.sh` automatically after every Write or Edit that lands in
+  `reports/*.md` outside `reports/_template/`, so the lint runs whether or not anyone
+  remembers to call it. Success is silent: a clean report produces no output at all. A
+  FAIL or WARN line gets the full lint output fed back to the model as context. It is a
+  lint, not a gate, so it never blocks the write and always exits 0. Wired in
+  `.claude/settings.json`, proved by `evals/test-lint-hook.sh`.
+
 ## 0.2.0, 2026-09-09
 
 **v0.1.0 could not be used. This release removes the reasons why.**

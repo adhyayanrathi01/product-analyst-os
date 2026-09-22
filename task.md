@@ -39,9 +39,10 @@ That answer is worse than the one you get after filling in `entities.md`, and it
 ./evals/test-guardrails.sh             # 19/19
 ./evals/test-protection.sh             # 24/24
 ./evals/check-output.sh --self-test    # 30/30
+./evals/test-lint-hook.sh              # 7/7
 ```
 
-CI runs all four plus a style check on every push. Badge is in the README.
+CI runs all five plus a style check on every push. Badge is in the README.
 
 ---
 
@@ -81,6 +82,13 @@ went out in a report stands, and a later change is shown as a restatement.
 
 **Published.** MIT license, GitHub Actions running every suite, README badges pointing at
 real CI rather than decorative ones.
+
+**v0.2.1.** A `PostToolUse` hook, `.claude/hooks/lint-report.sh`, runs
+`evals/check-output.sh` automatically after a Write or Edit lands in `reports/*.md`
+outside `reports/_template/`, and hands the model any FAIL or WARN line as context.
+Success is silent, so the agent stops needing to remember the lint step by hand. It is
+still a lint, not a gate, and it always exits 0. Wired into `.claude/settings.json` and
+proved by `evals/test-lint-hook.sh`.
 
 ---
 

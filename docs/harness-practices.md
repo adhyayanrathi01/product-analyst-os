@@ -110,6 +110,12 @@ Mechanics worth knowing, all from
 - A `PreToolUse` hook exiting 2 blocks before permission rules evaluate and overrides
   allow rules. It cannot override deny.
 
+`PostToolUse` runs after a tool call succeeds and cannot block it, so it is for feedback
+rather than enforcement. A hook returns text to the model by printing
+`hookSpecificOutput.additionalContext` and exiting 0. This repo uses it to run the report
+lint automatically, keeping success silent and failures verbose. See
+[the hooks docs](https://code.claude.com/docs/en/hooks).
+
 Codex uses two orthogonal dials: `sandbox_mode` (`read-only`, `workspace-write`,
 `danger-full-access`), an OS-enforced boundary with network off by default in
 workspace-write, and `approval_policy` (`untrusted`, `on-request`, `never`). Configure

@@ -1,5 +1,5 @@
 {
-  "$comment": "Rules evaluate deny, then ask, then allow. First match wins. Specificity does not change ordering, so a broad deny cannot carry exceptions. Path rules work on Read and Edit only: a Write(path) rule is accepted silently and never consulted, which is why guard.py exists.",
+  "$comment": "Rules evaluate deny, then ask, then allow. First match wins. Specificity does not change ordering, so a broad deny cannot carry exceptions. Path rules work on Read and Edit only: a Write(path) rule is accepted silently and never consulted, which is why guard.py exists. PostToolUse lints written reports and never blocks.",
   "permissions": {
     "defaultMode": "default",
     "deny": [
@@ -41,6 +41,17 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/lint-report.sh"
           }
         ]
       }

@@ -29,6 +29,9 @@ jobs:
       - name: Protection
         run: ./evals/test-protection.sh
 
+      - name: Report lint hook
+        run: ./evals/test-lint-hook.sh
+
       - name: Output lint self-test
         run: ./evals/check-output.sh --self-test
 
