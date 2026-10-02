@@ -113,14 +113,19 @@ pressure. Everything else on this page is shape.
    Inverting the polarity keeps exactly the rows you meant to drop and raises no error,
    which makes it the most expensive typo available to you.
 
+   Wrap each rule in its own parentheses before you `AND` it in. A rule containing `OR`,
+   such as the churn rule, otherwise binds wrongly: `a AND x IS NULL OR x > d` reads as
+   `(a AND x IS NULL) OR x > d`, which brings back every row the other rules removed,
+   with no error.
+
    ```sql
-   -- Each confirmed rule from entities.md, pasted verbatim and ANDed.
+   -- Each confirmed rule from entities.md, pasted verbatim, parenthesized, ANDed.
    -- E-3 internal flag, E-4 demo, E-9 soft delete.
    SELECT count(*) AS accounts
    FROM accounts a
-   WHERE a.is_internal IS NOT TRUE          -- E-3
-     AND a.account_type <> 'demo'           -- E-4
-     AND a.deleted_at IS NULL               -- E-9
+   WHERE (a.is_internal IS NOT TRUE)                  -- E-3
+     AND (a.account_type IS DISTINCT FROM 'demo')     -- E-4, keeps a blank type
+     AND (a.deleted_at IS NULL)                       -- E-9
      AND a.created_at >= TIMESTAMP '2026-08-01 00:00:00+00'
      AND a.created_at <  TIMESTAMP '2026-09-01 00:00:00+00'
    LIMIT 1000;

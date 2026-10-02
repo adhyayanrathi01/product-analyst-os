@@ -420,3 +420,35 @@ config. Pick one tool from a list. Render reports as shareable pages. Use from c
 only a terminal.
 
 **Unverified.** Neither the MCP matcher nor the rules have fired in a live session.
+
+---
+
+## 2026-10-03, v0.3.0 onboarding interview
+
+**Scope chosen by the user.** Three items from the usability list, not all ten: the setup
+interview, a first-run greeting in `task.md`, and a shorter Getting started. A little
+friction is intended, the user's own `mv` is the approval step, but not a 37-blank form.
+
+**Design constraint.** The agent never writes `knowledge-base/`, and a definition outside
+that folder must never be used. So the interview drafts to
+`reports/YYYY-MM-DD-entities.md.proposed`. The `.proposed` extension keeps the report lint
+off it, verified, and `mv` rather than `cp` leaves no stale copy behind.
+
+**Dry run.** A worker ran the interview end to end against the Nimbus fixture, playing
+agent and PM. It found 13 defects in the first draft of the skill. The serious ones, all
+fixed: an unparenthesized `OR` in the churn rule that breaks every ANDed rule; fictional
+Nimbus numbers surviving in teaching prose that `grep EXAMPLE` misses; the schema glob
+matching `schema/_template/`; `confirmed` given for a named column rather than a stated
+policy; no question for a second definition of active or the account threshold; and no
+safe rerun mode. The skill was rewritten against all of them.
+
+**Root-caused, not patched at the symptom.** The `OR` bug was not only in the skill. The
+shipped template's E-8 and E-9 examples and the Nimbus fixture have the same shape, and
+neither analysis skill parenthesized rules before ANDing them. Both skills now wrap every
+rule, which covers user-written rules as well. The template and fixture were left as they
+are, because the guard blocks writes to any `knowledge-base/` path, and the skill fix makes
+them safe at the point of use.
+
+**Unverified.** The rewritten skill has not been dry-run a second time, and no real user
+has taken the interview. The First run trigger depends on the agent reading `task.md`,
+which `AGENTS.md` asks for at session start but nothing enforces.

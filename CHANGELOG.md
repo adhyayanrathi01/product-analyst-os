@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.3.0, 2026-10-03
+
+**First run is now a ten minute conversation instead of a 37-blank form.**
+
+### Added
+
+- **`skills/setup/onboard`, a setup interview.** Eight plain topics in three rounds, 5 to
+  10 minutes. It drafts `knowledge-base/entities.md` to
+  `reports/YYYY-MM-DD-entities.md.proposed`, shows a plain summary, and hands over one
+  `mv` command. The user running that command is the approval, so the agent still never
+  writes the knowledge base. Rerun it later to fill only the rows still marked `TODO`.
+- **A First run section at the top of `task.md`.** On the first product question in an
+  unset workspace, the agent says what setup takes and offers the interview. Declining
+  still gets an answer, on stated assumptions, with the offer repeated once.
+- **Getting started rewritten** around connect one source, ask a question, take the
+  setup.
+
+### Fixed
+
+- **An exclusion rule containing `OR` broke every other rule.** Rules are ANDed into one
+  `WHERE`, and the churn rule `x IS NULL OR x > d` bound as `(a AND x IS NULL) OR x > d`,
+  bringing back the internal and demo rows. Neither analysis skill parenthesized rules.
+  Both now wrap each rule before ANDing it, which covers hand-written rules too. Found by
+  a dry run of the interview against the Nimbus fixture.
+- **The backend skill's worked example wrote the demo rule with `<>`**, which drops
+  accounts with no type recorded. It now uses `IS DISTINCT FROM`, as `entities.md` says.
+
 ## 0.2.2, 2026-10-02
 
 ### Fixed

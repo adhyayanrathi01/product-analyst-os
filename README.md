@@ -48,25 +48,33 @@ making the definitions explicit, the schema captured, and the query mandatory.
 
 ## Getting started
 
-```bash
-./setup.sh
-```
+About ten minutes, start to finish.
 
-Then, in this order:
+1. Run `./setup.sh` and connect one source, the analytics tool you actually use. Seven
+   are supported. You need one.
+2. Open your agent in this folder and ask a real question, for example "how many active
+   accounts did we have last month?"
+3. The first time, it offers a short setup: about eight questions in plain words, like
+   what counts as an active customer and which email domains are your own team. It takes
+   5 to 10 minutes. It drafts your definitions, and you approve them by running one
+   command it gives you.
 
-1. **Fill in `knowledge-base/entities.md` first.** Everything else is downstream of it.
-   If the agent does not know what "active" means or which accounts are internal, every
-   number it produces is wrong in a way that looks right.
-2. Point your agent at your sources, and make the credentials read-only.
-3. Ask a question. It will answer, and it will tell you what was unverified.
+After that, answers use your definitions instead of guesses.
 
-Then, when you want the answers to be more than plausible:
+Skip the setup and it still answers, but it lists every assumption it made. Treat that
+number as a draft.
+
+When you want the answers to be more than plausible:
 
 4. Run verify. A source is not ready because a key is stored. It is ready when the agent
-   has actually read from it once. Nothing blocks until you do this. What you get from
-   doing it is a report that says the number came from a source somebody proved reads.
+   has actually read from it once. Nothing blocks until you do this. What you get is a
+   report that says the number came from a source somebody proved reads.
 5. Capture schema, so the agent queries against real column names instead of the ones in
-   your prompt.
+   your prompt. Do this before the setup interview if you can, because then the interview
+   offers your real column names instead of asking for them.
+
+You can still fill in `knowledge-base/entities.md` by hand instead of the interview. The
+interview just writes the same file from a conversation.
 
 ### What `TODO` and `EXAMPLE` mean
 

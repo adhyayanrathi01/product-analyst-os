@@ -27,7 +27,7 @@ Do not preload them.
 | `task.md` | Current work, blockers, next action |
 | `log.md` | What was done, assumed, and left unverified. Append-only |
 | `setup.sh` | First-run setup and `--check` health check. Never installs, never touches a secret |
-| `VERSION` | 0.2.0 |
+| `VERSION` | Current version |
 | `LICENSE` | MIT |
 | `.github/workflows/checks.yml` | CI running all four suites plus the style check on every push |
 | `.env.example` | Every env var name, grouped by source. Names only |
@@ -88,6 +88,7 @@ You fill these in. The agent reads them and never writes them. It proposes a dif
 |---|---|---|
 | `skills/setup/connect-sources/` | Choose and configure sources | To touch a credential value |
 | `skills/setup/verify-sources/` | One bounded read per source, then set Readiness. Records, does not gate | To call a source ready on anything but an observed read |
+| `skills/setup/onboard/` | First-run interview, eight plain topics, 5 to 10 minutes. Drafts `entities.md` to `reports/` and the user approves it by moving it into place. Also fills gaps later | To write `knowledge-base/` itself, or to use the draft before it is moved |
 | `skills/schema/capture-schema/` | First-run schema capture | To write a name or type introspection did not return |
 | `skills/schema/refresh-schema/` | Drift detection and diff. The one skill that legitimately delegates | To resolve a removed column to a similar added one and call it a rename |
 | `skills/analytics/analyze-frontend/` | Events: funnels, retention, activation, adoption | To report event volume as user count |

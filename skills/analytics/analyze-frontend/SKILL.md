@@ -143,6 +143,11 @@ pressure. Everything else on this page is shape.
    meant to drop and raises no error. Apply `confirmed` rules and cite them by id. Name
    any `unconfirmed` rule as not applied, with what it would have changed.
 
+   Wrap each rule in its own parentheses before you `AND` it in. A rule containing `OR`,
+   such as the churn rule, otherwise binds wrongly: `a AND x IS NULL OR x > d` reads as
+   `(a AND x IS NULL) OR x > d`, which brings back every row the other rules removed,
+   with no error.
+
 7. For a funnel, state four things before reporting a rate: the ordered steps, whether the
    order is enforced or any-order, the attribution window, and whether users who entered
    near the end of the range had time to finish. A 7-day funnel measured over a 7-day
