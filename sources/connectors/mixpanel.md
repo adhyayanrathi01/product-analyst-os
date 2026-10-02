@@ -53,6 +53,23 @@ use the beta service account path, the client sends
 `${MIXPANEL_SERVICE_ACCOUNT_USER}` and `${MIXPANEL_SERVICE_ACCOUNT_SECRET}` as
 HTTP Basic credentials instead.
 
+## Already connected in your client
+
+If a Mixpanel connector is already attached to your Claude desktop or claude.ai
+account, use it. No `.mcp.json` entry is needed, and `connect-sources` checks for
+one first. Its server name may be an opaque id, so it is identified by its tools
+(`Get-Events`, `List-Properties`, `Run-Query`) and their descriptions.
+
+It runs as you, with your project role, not with the read scopes above. On an
+Admin or Owner role it carries write tools: `Create-Dashboard`, `Update-Metric`,
+`Delete-Cohort`, `Create-Feature-Flag`, `Edit-Event`, `Bulk-Edit-Properties`,
+`Merge-Group` and more. Under Claude Code, `.claude/hooks/guard.py` blocks any
+MCP tool whose name carries a write or send verb. That is a name check on the
+client side, not a grant, and Codex has no equivalent. A view-only project role,
+such as Consumer, is the only thing that makes this path read-scoped, so an
+admin connector verifies to `partial` at best. If you want `ready`, lower the
+role or use the service account path above.
+
 ## Schema introspection
 
 Use the MCP tools, not the REST Lexicon endpoint:

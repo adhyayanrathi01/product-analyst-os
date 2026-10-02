@@ -50,8 +50,10 @@ making the definitions explicit, the schema captured, and the query mandatory.
 
 About ten minutes, start to finish.
 
-1. Run `./setup.sh` and connect one source, the analytics tool you actually use. Seven
-   are supported. You need one.
+1. Connect one source, the analytics tool you actually use. If it is already connected in
+   your Claude desktop or claude.ai account, that is enough: the agent finds it and uses
+   it, with no config file. Otherwise run `./setup.sh`. Seven are supported. You need one.
+   Either way, `./setup.sh --check` creates your workspace files from blank templates.
 2. Open your agent in this folder and ask a real question, for example "how many active
    accounts did we have last month?"
 3. The first time, it offers a short setup: about eight questions in plain words, like
@@ -104,6 +106,39 @@ definition of done and the order to fill things in.
 This friction is deliberate. Analytics without the definitions is number crunching, not
 analysis.
 
+## Your data stays out of git
+
+This repo is a public template, and it is also the folder you work in. Your definitions,
+schema captures, reports, `task.md` and `log.md` hold your company's data: internal
+domains, account ids, table names, real numbers. All of them are gitignored, so a commit
+or a push carries none of it, and neither does a public fork.
+
+Each one starts as a blank in a `_template/` folder. `./setup.sh` copies the blank into
+place the first time and never overwrites a file you filled in. `./setup.sh --check` does
+the same, and fails if git still tracks one of these files.
+
+Want your definitions under version control? Use a private repo, never a public fork, and
+delete only the `.gitignore` lines for what you mean to track.
+
+### Upgrading a clone made before 0.4.0
+
+If you committed filled-in definitions, a plain `git pull` can merge them into the tracked
+templates, and your next push publishes them. Run this instead. Nothing here deletes a file
+on disk.
+
+```bash
+mkdir -p ../paos-backup && cp -Rp knowledge-base reports schema task.md log.md ../paos-backup/
+git fetch origin
+git checkout origin/main -- .gitignore
+git ls-files -ci --exclude-standard -z | xargs -0 git rm -q --cached --
+PAOS_ALLOW_PROTECTED=1 git commit -am "Stop tracking my workspace"
+git pull --no-rebase -X no-renames origin main
+./setup.sh --check
+```
+
+`-X no-renames` is the step that matters. Already pushed to a public remote? Untracking
+does not unpublish anything. Treat that content as exposed.
+
 ## What it answers, and where the answers go
 
 Every answer is a file: `reports/YYYY-MM-DD-<topic>.md`. The date is when the analysis
@@ -132,8 +167,8 @@ question that crosses sources, spans periods, or feeds a decision that matters.
 The split between the two analyze skills is by where the data lives, not by what you ask.
 `analyze-frontend` reads event tools, where the traps are ad-blocker undercount and
 mistaking event volume for user count. `analyze-backend` reads databases and warehouses,
-where the trap is confusing the account grain with the user grain, which silently
-multiplies your numbers by the average seat count.
+where the trap is counting at the wrong level, for example users instead of accounts,
+which silently multiplies your numbers by the average number of rows per level.
 
 ## Sources
 
@@ -176,9 +211,11 @@ enforcement is in the harness:
 - `.claude/hooks/guard.py` covers what settings cannot: Claude Code's path rules do not
   apply to `Write` at all, so a deny rule there is silently ignored. The hook also blocks
   shell paths around the deny rules and any destructive statement aimed at a database
-  client, including one sent through an MCP tool.
+  client, including one sent through an MCP tool. It also blocks any MCP tool whose name
+  carries a write or send verb, such as `Create-Dashboard` or `send_message`, because a
+  connector attached to your account runs with your full role.
 - `.codex/config.toml` sets Codex's sandbox and approval policy, which are OS-enforced.
-- `evals/test-guardrails.sh` proves the guard fails when it should, across 33 cases. Run
+- `evals/test-guardrails.sh` proves the guard fails when it should, across 61 cases. Run
   it after touching the hook.
 
 `CHARTER.md` says out loud that it is a specification and not a control. An agent with

@@ -20,10 +20,29 @@ gcloud-key*.json
 .supabase/
 supabase/.temp/
 
-# Local schema captures. An introspection dump carries real table names,
-# column names and column comments. Those often describe customer data, so a
-# raw capture is not safe to publish. Only the reviewed schema/<source>/schema.md
-# is committed.
+# Your workspace. This repo is a public template, and these paths hold your
+# company's data: your definitions, your captured schema, your reports, your
+# task state and log. They stay on this machine. Each one is created from the
+# tracked blank in a _template/ folder by ./setup.sh, which never overwrites.
+#
+# To version them, use a PRIVATE repo, never a public fork, and delete only the
+# lines you mean to track. Commits touching knowledge-base/ then need
+# PAOS_ALLOW_PROTECTED=1, on purpose.
+/knowledge-base/*
+!/knowledge-base/README.md
+!/knowledge-base/_template/
+/reports/*
+!/reports/README.md
+!/reports/_template/
+/schema/*
+!/schema/README.md
+!/schema/_template/
+/task.md
+/log.md
+
+# Raw schema captures, anywhere. An introspection dump carries real table
+# names, column names and column comments. Keep these out even if you opt
+# schema/ in above. Only a reviewed schema/<source>/schema.md is worth keeping.
 schema/**/raw/
 schema/**/*.raw.json
 schema/**/*.capture.json

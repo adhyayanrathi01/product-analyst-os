@@ -1,5 +1,65 @@
 # Changelog
 
+## 0.4.0, 2026-10-03
+
+**Your company's data no longer goes into git, attached connectors just work, and the
+definitions file takes any number of levels.**
+
+### Changed
+
+- **Workspace files are gitignored.** `knowledge-base/`, `reports/`, `schema/`, `task.md`
+  and `log.md` hold your definitions, table names, real numbers and history. This repo is
+  public, so a commit and a push used to publish them. Their blanks now live in
+  `_template/` folders, and `./setup.sh` and `./setup.sh --check` copy any missing one into
+  place without ever overwriting. `--check` fails if git still tracks one of them. The
+  agent no longer lists reports or schema captures in the tracked `index.md`.
+- **The repo's own development state moved** to `docs/dev/task.md` and `docs/dev/log.md`.
+  Root `task.md` is now yours: the First run section and an empty state.
+- **Grain is now a list of levels.** Section 1 of `entities.md` lists every level a
+  business counts, top first, with its id, table, parent link and count. One row works,
+  two is the plain account and user case, and a franchise writes brand, location, staff.
+  Activity rolls up one step at a time in section 2. Exclusions carry a level and flow down,
+  never up: an excluded company excludes its locations and people, and an internal person
+  never excludes their company. The onboard interview asks for levels in topic 1. The
+  analysis skill contracts now say level instead of account-versus-user, a spec change.
+
+### Added
+
+- **`./setup.sh --check` smoke-tests the guard instead of running its full suite.** It
+  checks that the guard compiles, blocks a protected write and allows a report, which
+  catches a broken or deleted guard. The full suite stays in CI and runs on every push.
+  Users never change the guard, so they never need to re-prove it. `--check` runs before
+  every analysis and dropped from 1.6 seconds to 0.2.
+- **Already-connected connectors are the first path.** `connect-sources` checks the
+  session for a connector attached at the client or account, identifies the vendor from its
+  tool descriptions rather than its server name, and uses it with no `.mcp.json`.
+
+### Security
+
+- **The guard blocks MCP write and send tools by name.** A connector attached to your
+  account runs with your full role, often admin, next to tools like `Create-Dashboard`,
+  `Delete-Cohort`, `update_question` and `send_message`. Any MCP tool whose name carries a
+  write or send verb is now blocked. Names only ever block, never allow. Guardrails grow
+  from 33 to 61 cases.
+- **An admin connector verifies to `partial`,** not `ready`. C-08's read-scoped condition
+  is not met by a user's admin role or by a client-side name check.
+
+### Fixed
+
+- **The E-8 and E-9 examples had an unparenthesized `OR`**, and E-1 and E-2 dropped empty
+  values once inherited through a `LEFT JOIN`. All four are fixed in the template.
+
+### Upgrading
+
+A plain `git pull` on a clone with committed definitions merges them into the tracked
+templates, with no conflict. Follow the steps in the README, "Upgrading a clone made
+before 0.4.0".
+
+### Known
+
+- No BigQuery spend cap through Metabase: its SQL tool cannot set `maximum_bytes_billed`.
+  `metabase.md` and `bigquery.md` say so and point to metadata reads.
+
 ## 0.3.0, 2026-10-03
 
 **First run is now a ten minute conversation instead of a 37-blank form.**

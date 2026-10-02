@@ -7,7 +7,8 @@
 #
 # Modes:
 #   ./setup.sh          interactive first-run setup
-#   ./setup.sh --check   non-interactive health check, exits non-zero on failure
+#   ./setup.sh --check   non-interactive health check, exits non-zero on failure.
+#                        Also creates any missing workspace file from its template.
 #   ./setup.sh --help    this text
 #
 # Written to run on bash 3.2 as shipped with macOS, so no associative arrays and
@@ -18,8 +19,14 @@ REPO="$(cd "$(dirname "$0")" && pwd)"
 cd "$REPO"
 
 SOURCES_MD="sources/sources.md"
-GUARDRAILS="evals/test-guardrails.sh"
+GUARD=".claude/hooks/guard.py"
 SOURCE_KEYS="posthog mixpanel amplitude bigquery metabase mongodb postgres-supabase"
+
+# Workspace files. Each is gitignored, because it holds the user's company data,
+# and each has a tracked blank at <dir>/_template/<name>.
+WORKSPACE_FILES="knowledge-base/entities.md knowledge-base/company.md
+knowledge-base/personas.md knowledge-base/metrics.md knowledge-base/glossary.md
+task.md log.md"
 
 ok()   { printf '  ok       %s\n' "$*"; }
 warn() { printf '  warn     %s\n' "$*"; }
@@ -277,6 +284,7 @@ interactive() {
   fi
 
   check_prereqs || echo "  Fix the MISSING items above before you rely on the guard."
+  ensure_workspace_files || echo "  A template is missing. Restore it from git before you continue."
 
   if [ ! -f .env ]; then
     cp .env.example .env
@@ -335,6 +343,57 @@ env_names_for_label() {
     { name = $2; gsub(/^[ \t]+|[ \t]+$/, "", name) }
     name == L { e = $4; gsub(/^[ \t]+|[ \t]+$/, "", e); print e; exit }
   '
+}
+
+# ---------------------------------------------------------------------------
+# Workspace files
+# ---------------------------------------------------------------------------
+# This repo is a public template and also the folder you analyze in. Your
+# definitions, schema, reports, task.md and log.md are gitignored so a push never
+# publishes them, which means a fresh clone has none. Each is copied from its
+# blank template the first time. An existing file is never overwritten, so this
+# is safe to run every time, and --check runs it.
+ensure_workspace_files() {
+  local f t fail=0
+  sec "Workspace files"
+  for f in $WORKSPACE_FILES; do
+    t="$(dirname "$f")/_template/$(basename "$f")"
+    t="${t#./}"
+    if [ -f "$f" ]; then
+      ok "$f"
+    elif [ -f "$t" ]; then
+      cp "$t" "$f"
+      ok "$f created from $t"
+    else
+      bad "$f, and its template $t"
+      fail=1
+    fi
+  done
+  return "$fail"
+}
+
+# .gitignore does not untrack a file git already tracks. A clone made before
+# workspace files were ignored, or a git add -f, leaves one tracked, and the next
+# push publishes it. This is the one way the gitignore can be silently bypassed.
+check_workspace_untracked() {
+  local tracked
+  sec "Workspace privacy"
+  if ! have git || ! git rev-parse --git-dir >/dev/null 2>&1; then
+    ok "not a git repository, nothing can be pushed."
+    return 0
+  fi
+  tracked="$(git ls-files -ci --exclude-standard)"
+  if [ -z "$tracked" ]; then
+    ok "no gitignored file is tracked. A push carries none of your workspace."
+    return 0
+  fi
+  bad "git still tracks these gitignored files. A push would publish them:"
+  printf '%s\n' "$tracked" | sed 's/^/    /'
+  echo "  Stop tracking them. Your copies stay on disk:"
+  echo "    git ls-files -ci --exclude-standard -z | xargs -0 git rm --cached --"
+  echo "  Then commit. If you meant to track them, use a private repo and delete"
+  echo "  their lines from .gitignore."
+  return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -402,16 +461,35 @@ check_sources() {
   return "$fail"
 }
 
+# A smoke test, not the suite. It proves the guard is alive: it compiles, it blocks
+# one forbidden write, and it allows one normal one. A guard with a syntax error lets
+# every call through, which is the failure worth catching on a user's machine.
+#
+# The full suite, evals/test-guardrails.sh, proves every case. Users never change the
+# guard, so they never need to re-prove it. CI runs the suite on every push, and a
+# maintainer runs it after touching the hook.
 check_guardrails() {
-  local rc=0
+  local deny allow
   sec "Guardrails"
-  if [ -f "$GUARDRAILS" ]; then
-    bash "$GUARDRAILS" || rc=$?
-    if [ "$rc" -eq 0 ]; then ok "$GUARDRAILS passed"; else bad "$GUARDRAILS failed with exit $rc"; fi
-  else
-    warn "$GUARDRAILS not present, skipped."
+  if [ ! -f "$GUARD" ]; then
+    bad "$GUARD not found. Without it, nothing stops a write to a protected file."
+    return 1
   fi
-  return "$rc"
+  if ! python3 -m py_compile "$GUARD" 2>/dev/null; then
+    bad "$GUARD does not compile. A broken guard blocks nothing."
+    return 1
+  fi
+  deny=0; allow=0
+  printf '%s' '{"tool_name":"Write","tool_input":{"file_path":"CHARTER.md"}}' \
+    | python3 "$GUARD" >/dev/null 2>&1 || deny=$?
+  printf '%s' '{"tool_name":"Write","tool_input":{"file_path":"reports/x.md"}}' \
+    | python3 "$GUARD" >/dev/null 2>&1 || allow=$?
+  if [ "$deny" -eq 2 ] && [ "$allow" -eq 0 ]; then
+    ok "guard compiles, blocks a protected write, allows a report"
+    return 0
+  fi
+  bad "guard smoke test failed: protected write exit $deny (want 2), report write exit $allow (want 0)"
+  return 1
 }
 
 # Reports how much of the knowledge base is still unfilled.
@@ -508,9 +586,10 @@ kb_protected() {
   done
 }
 
-# Returns 0 when entities.md still has TODO markers, meaning setup is unfinished.
+# Returns 0 when setup is unfinished: entities.md is missing, or still has TODO
+# markers. A missing file is unfinished, not filled.
 kb_unfilled() {
-  [ -f knowledge-base/entities.md ] || return 1
+  [ -f knowledge-base/entities.md ] || return 0
   grep -q 'TODO' knowledge-base/entities.md
 }
 
@@ -547,10 +626,10 @@ protect_repo() {
     if [ "$force" = "force" ]; then
       kb_protected >> "$list"
       warn "knowledge-base/ locked anyway, because you passed --force."
-      warn "entities.md still has TODO markers. You cannot finish setup until you"
+      warn "entities.md is missing or still has TODO markers. You cannot finish setup until you"
       warn "run ./setup.sh --unprotect."
     else
-      warn "knowledge-base/ NOT locked. entities.md still has TODO markers."
+      warn "knowledge-base/ NOT locked. entities.md is missing or still has TODO markers."
       echo "  Locking it now would block you from finishing setup, so it was skipped."
       echo "  Fill entities.md in, then run ./setup.sh --protect again."
       echo "  To lock it unfilled anyway: ./setup.sh --protect --force"
@@ -613,8 +692,8 @@ protection_status() {
   echo ""
   echo "  $locked locked, $open writable."
   if kb_unfilled; then
-    echo "  knowledge-base/ is expected to be writable. entities.md still has TODO"
-    echo "  markers, so setup is not finished."
+    echo "  knowledge-base/ is expected to be writable. entities.md is missing or"
+    echo "  still has TODO markers, so setup is not finished."
   fi
   return 0
 }
@@ -649,6 +728,8 @@ run_check() {
   local fail=0
   check_prereqs   || fail=1
   check_structure || fail=1
+  ensure_workspace_files || fail=1
+  check_workspace_untracked || fail=1
   check_sources   || fail=1
   check_knowledge_base || fail=1
   check_protection || true
@@ -696,8 +777,11 @@ Usage:
                        config block and the read-only credential steps for each.
   ./setup.sh --check   non-interactive health check. Verifies the repo layout,
                        that every env var named in sources/sources.md is set,
-                       and runs evals/test-guardrails.sh. Exits non-zero if
-                       anything required is missing.
+                       that git tracks none of your gitignored workspace, and
+                       smoke-tests the guard. Exits non-zero if
+                       anything required is missing. Creates any missing
+                       workspace file from its _template/ blank, and never
+                       overwrites one.
 
   ./setup.sh --protect          chmod the rule files and the knowledge base
                                 read-only, and wire .githooks/pre-commit if this

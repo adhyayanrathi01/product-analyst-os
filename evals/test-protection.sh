@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Self-check for the portable protection layer: setup.sh --protect / --unprotect
-# and .githooks/pre-commit.
+# Self-check for the portable protection layer: setup.sh --protect / --unprotect,
+# .githooks/pre-commit, and the .gitignore that keeps the user's workspace out of
+# git.
 #
 # Protection is chmod plus a commit hook, so it works on Claude Code, Codex and
 # any other harness. A protection layer nobody tests is one that silently stopped
@@ -124,6 +125,20 @@ check "setup.sh still executable"       yes "$(executable "$S/setup.sh")"
 check "guard.py still executable"       yes "$(executable "$S/.claude/hooks/guard.py")"
 
 # ---------------------------------------------------------------------------
+# A fresh clone has no entities.md until setup copies the template. Missing is
+# unfinished, so --protect must not lock the kb and must say so.
+# ---------------------------------------------------------------------------
+rm -f "$S/knowledge-base/entities.md"
+out="$(bash "$S/setup.sh" --protect 2>&1)"
+case "$out" in
+  *"NOT locked"*) got=warned ;;
+  *)              got=silent ;;
+esac
+check "missing entities.md is unfinished" warned "$got"
+check "missing entities.md leaves kb open" yes "$(writable "$S/knowledge-base/company.md")"
+bash "$S/setup.sh" --unprotect >/dev/null 2>&1
+
+# ---------------------------------------------------------------------------
 # The commit hook, in its own throwaway git repo.
 # ---------------------------------------------------------------------------
 if ! command -v git >/dev/null 2>&1; then
@@ -162,6 +177,92 @@ else
   out="$(git -C "$G" commit -m "report only" 2>&1)"; rc=$?
   if [ "$rc" -eq 0 ]; then got=allowed; else got=refused; fi
   check "hook allows an unprotected path" allowed "$got"
+
+  # The blank templates are tracked, and still under knowledge-base/.
+  mkdir -p "$G/knowledge-base/_template"
+  printf 'blank\n' > "$G/knowledge-base/_template/entities.md"
+  git -C "$G" add -A >/dev/null 2>&1
+  out="$(git -C "$G" commit -m "template edit" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ]; then got=allowed; else got=refused; fi
+  check "hook refuses a kb template edit"  refused "$got"
+
+  # -------------------------------------------------------------------------
+  # The workspace stays out of git. Uses the repo's real .gitignore and
+  # setup.sh, so this proves the shipped files, not a copy of the rules.
+  # -------------------------------------------------------------------------
+  L="$SANDBOX/workspace"
+  mkdir -p "$L/knowledge-base/_template" "$L/reports/_template" \
+           "$L/schema/_template" "$L/_template"
+  cp -p "$REPO/.gitignore" "$L/.gitignore"
+  cp -p "$REPO/setup.sh" "$L/setup.sh"
+  for f in entities company personas metrics glossary; do
+    printf '# %s\n\nTODO\n' "$f" > "$L/knowledge-base/_template/$f.md"
+  done
+  printf 'readme\n'  > "$L/knowledge-base/README.md"
+  printf 'readme\n'  > "$L/reports/README.md"
+  printf 'shape\n'   > "$L/reports/_template/report.md"
+  printf 'readme\n'  > "$L/schema/README.md"
+  printf 'format\n'  > "$L/schema/_template/schema.md"
+  printf '# Current task\n' > "$L/_template/task.md"
+  printf '# Log\n'          > "$L/_template/log.md"
+  git init -q "$L"
+  git -C "$L" config user.email "test@example.invalid"
+  git -C "$L" config user.name "protection test"
+  git -C "$L" config commit.gpgsign false
+  git -C "$L" add -A >/dev/null 2>&1
+  git -C "$L" commit -qm "template" >/dev/null 2>&1
+
+  n="$(git -C "$L" ls-files | grep -c '_template/' || true)"
+  check "all 9 templates are tracked"       9 "$n"
+
+  # setup copies every missing workspace file from its template.
+  bash "$L/setup.sh" --check >/dev/null 2>&1
+  for f in knowledge-base/entities.md knowledge-base/glossary.md task.md log.md; do
+    if [ -f "$L/$f" ]; then got=created; else got=absent; fi
+    check "setup creates $f"            created "$got"
+  done
+
+  # A filled file at every workspace path. None may reach git.
+  printf 'grain: account\nexclude: @internal.example\n' > "$L/knowledge-base/entities.md"
+  for f in company personas metrics glossary; do
+    printf 'filled\n' > "$L/knowledge-base/$f.md"
+  done
+  printf 'filled\n' > "$L/knowledge-base/entities.md.bak"
+  mkdir -p "$L/schema/warehouse"
+  printf '| orders | id | int |\n' > "$L/schema/warehouse/schema.md"
+  printf 'abc\n'                   > "$L/schema/warehouse/schema.sha256"
+  printf '412 active accounts\n'   > "$L/reports/2026-10-03-active-accounts.md"
+  printf 'draft\n'                 > "$L/reports/2026-10-03-entities.md.proposed"
+  printf 'state\n'                 > "$L/task.md"
+  printf 'history\n'               > "$L/log.md"
+  out="$(git -C "$L" status --porcelain --untracked-files=all)"
+  check "no workspace file shows in git status" "" "$out"
+
+  # setup never overwrites a filled file.
+  bash "$L/setup.sh" --check >/dev/null 2>&1
+  case "$(cat "$L/knowledge-base/entities.md")" in
+    *"@internal.example"*) got=kept ;;
+    *)                     got=overwritten ;;
+  esac
+  check "setup keeps a filled entities.md"  kept "$got"
+
+  # A force-added workspace file is caught by --check, and named.
+  git -C "$L" add -f knowledge-base/entities.md >/dev/null 2>&1
+  out="$(bash "$L/setup.sh" --check 2>&1)"
+  case "$out" in
+    *"git still tracks"*"knowledge-base/entities.md"*) got=caught ;;
+    *)                                                 got=missed ;;
+  esac
+  check "--check names a tracked workspace file" caught "$got"
+  git -C "$L" rm -q --cached knowledge-base/entities.md >/dev/null 2>&1
+  out="$(bash "$L/setup.sh" --check 2>&1)"
+  case "$out" in
+    *"no gitignored file is tracked"*) got=clean ;;
+    *)                                 got=flagged ;;
+  esac
+  check "--check is clean once untracked"   clean "$got"
+  if [ -f "$L/knowledge-base/entities.md" ]; then got=kept; else got=lost; fi
+  check "untracking keeps the file on disk" kept "$got"
 fi
 
 echo "---"

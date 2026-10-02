@@ -135,6 +135,16 @@ Bound by **C-08**, **C-04**, **C-06**, **C-09**, **C-02**.
         "$METABASE_HOST/api/database/$METABASE_DATABASE_ID/metadata" | head -c 2000
    ```
 
+   **A client connector** (registered with `Client connector` in Read-only mechanism)
+   has no env vars, so the curl and `bq` forms above do not apply. Run the same smoke
+   test through the connector's own read tool, chosen by what the tool does, not by its
+   annotation: Mixpanel `Get-Events`, then `List-Properties` for one event. Metabase, a
+   metadata or search tool that lists tables, which reads Metabase's synced metadata and
+   scans nothing in the warehouse behind it. Do not run native SQL to verify a Metabase
+   connector: if its database is BigQuery, nothing on that path can set
+   `maximum_bytes_billed` (`sources/connectors/metabase.md`). Quote the tool name and
+   its arguments verbatim as the bounded read.
+
 3. Record the count returned. Zero rows is still an observation, but it is `partial`,
    not `ready`: the endpoint answered and the scope may be empty or wrong.
 
@@ -148,9 +158,18 @@ Bound by **C-08**, **C-04**, **C-06**, **C-09**, **C-02**.
    - Amplitude: the user's role tier. Anything above Viewer also grants `USE_MCP_WRITE`.
    - Metabase: the API key's group has no native-query rights.
    - MongoDB: the server was started with `--readOnly` and the DB user holds `read`.
+   - Client connector: the user's role in the tool. It authenticates as the user, so the
+     role is the grant. Ask for it explicitly, as for Amplitude. Only a view-only role
+     (for example a Mixpanel Consumer, or a Metabase user whose groups are view-only with
+     no native query) meets condition 2. Admin, Owner, an analyst or editor role, or
+     `role unknown` does not. `guard.py` blocking write tools by name does not meet it
+     either: it is a client-side control, like the PostHog header, and it exists only
+     under Claude Code.
 
    If the read works but the scope is write-capable, set Readiness to `partial` and name
-   it. Do not set `ready`.
+   it. Do not set `ready`. For a client connector with a write-capable role, the
+   blocking condition is `Read-scoped`, and the row's Notes say why in one line, for
+   example "client connector, user role Admin, write tools blocked by guard.py only".
 
 5. Update the row in `sources/sources.md`: Readiness and the Last verified date, as an
    absolute date with timezone. Change nothing else in that file.
@@ -178,6 +197,15 @@ Bound by **C-08**, **C-04**, **C-06**, **C-09**, **C-02**.
 - **BigQuery verified without a cost cap and the "verification" bills a full scan.**
   Check: the recorded command must contain `--maximum_bytes_billed` or the MCP env must
   contain `BIGQUERY_MAXIMUM_BYTES_BILLED`. Missing means the read did not run.
+
+- **An admin client connector is marked `ready` because its read worked.** Conditions 1,
+  3 and 4 pass, so it looks complete. The grant is the user's full role. Check: if the
+  row's Read-only mechanism starts with `Client connector`, Readiness is `ready` only when
+  the output names a view-only role. Any other role, or none, means `partial`.
+
+- **A client connector is verified by changing something.** Creating a test dashboard
+  or cohort proves access and is also a write, which C-02 forbids without approval.
+  Check: the bounded read is a list, get, search or metadata call.
 
 - **Zero rows reported as success.** An empty project answers 200 with an empty list.
   Check: if the count is 0, Readiness is `partial` and the output says the scope may be

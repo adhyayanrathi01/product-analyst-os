@@ -9,17 +9,18 @@ description: Entity and SQL analysis over BigQuery, Metabase, MongoDB and Postgr
 ## Contract
 
 Answers entity questions from source-of-truth tables. Owns the demo, internal and test
-exclusion logic for the whole repo, and owns the account-versus-user grain decision.
+exclusion logic for the whole repo, and owns the decision of which level from
+`entities.md` section 1 a number counts.
 
 Guarantees:
 
 - `knowledge-base/entities.md` is read before the first query, every time. It defines
-  active, demo, internal, and whether the unit of analysis is the account or the user.
+  active, demo, internal, and the levels you count at, with which one is the customer.
   Querying without it produces confidently wrong numbers.
-- **Grain is declared before any count.** In B2B the account is usually the unit and users
-  nest inside it, so counting users and calling it customers double-counts by the average
-  seat count. In B2C the user is the unit. The output states which grain it used and why.
-  A count without a declared grain is not a finding.
+- **The level is declared before any count.** Lower levels nest inside higher ones, so
+  counting a lower level and calling it customers inflates the number by the average number
+  of rows per level, multiplied across every level skipped. The output states which level it
+  used and why. A count without a declared level is not a finding.
 - Every exclusion applied is stated by name. Where an exclusion moves the answer
   materially, both numbers appear: "1,240 accounts, or 1,118 excluding internal, demo and
   test".
@@ -63,8 +64,9 @@ time, and asking is cheap because the queries are already run.
 **Short form.** The default for a single-source question.
 
 - **Question**: the question as answered, restated with its grain
-- **Facts**: each number with its query verbatim and its row count. Grain labeled per
-  number: `accounts`, `users`, `rows`, or currency with the currency named
+- **Facts**: each number with its query verbatim and its row count. Level labeled per
+  number, using the level name from `entities.md` section 1, or `rows`, or currency with
+  the currency named
 - **Exclusions applied**: the `confirmed` rules from `entities.md` you applied, by id,
   plus the unfiltered number where an exclusion moved the answer
 - **Interpretation**: one or two lines on what the numbers mean, kept separate from Facts
@@ -92,14 +94,23 @@ pressure. Everything else on this page is shape.
 
 ## Process
 
-1. Read `knowledge-base/entities.md` first. Extract three things before writing SQL: the
-   exclusion predicates, the grain, and the confirmed join keys with their cardinality.
+1. Read `knowledge-base/entities.md` first. If it does not exist, run `./setup.sh --check`,
+   which copies the blank template into place. Extract four things before writing SQL: the
+   levels in section 1 with their links and which one "a customer" means, the activity
+   roll-up in section 2, the exclusion predicates with their levels, and the confirmed
+   join keys with their cardinality.
 
-2. Declare the grain out loud, in one sentence, before any query. "This is a B2B product,
-   so the unit is `accounts.id`, and `users` nest inside it via `users.account_id`." If
-   `entities.md` does not settle it, pick the grain the question implies, say in one line
-   that you picked it and why, and carry on. Guessing silently is what double-counts.
-   Guessing out loud is an assumption the reader can overrule.
+   An older file has a two-field grain table instead of a levels table. Read
+   `Primary grain` as the customer level and "the other grain" as the one level below
+   it. If an exclusion has no Level column, its level is the level whose table the
+   predicate names, and `event` for an event property. Say so in one line.
+
+2. Declare the level out loud, in one sentence, before any query. "This counts accounts,
+   `accounts.id`, the customer level in `entities.md` section 1. Users nest inside
+   through `users.account_id`." Name every level between the one you count and the one
+   your rows are at. If `entities.md` does not settle it, pick the level the question
+   implies, say in one line that you picked it and why, and carry on. Guessing silently
+   is what double-counts. Guessing out loud is an assumption the reader can overrule.
 
 3. Read `sources/sources.md` and `schema/<source>/schema.md`. Note the Readiness state and
    carry it into the output. A source that is not `ready` is queried anyway, with one line
@@ -131,6 +142,33 @@ pressure. Everything else on this page is shape.
    LIMIT 1000;
    ```
 
+   Apply each rule at its own level, from the Level column in `entities.md` section 3.
+   Exclusion flows down, never up.
+
+   - **Rule at the level you count.** `AND` it in.
+   - **Rule at a higher level.** `LEFT JOIN` up through the section 1 links and `AND` it
+     in. An excluded account removes its users. A row with an empty parent link stays,
+     because every rule keeps an empty value, and the output says how many there were.
+   - **Rule at a lower level.** Do not join down to apply it. It never removes the row you
+     count. It only stops an excluded child counting toward its parent being active,
+     through the section 2 roll-up. List it as not applicable at this level.
+   - **`event` rule.** Filter the events before any roll-up.
+
+   ```sql
+   -- Counting users. E-4 is an account-level rule, so join up and apply it there.
+   SELECT count(DISTINCT u.id) AS users,
+          count(DISTINCT u.id) FILTER (WHERE u.account_id IS NULL) AS users_with_no_account
+   FROM users u
+   LEFT JOIN accounts a ON a.id = u.account_id
+   WHERE (a.account_type IS DISTINCT FROM 'demo')     -- E-4, inherited down
+     AND u.created_at >= TIMESTAMP '2026-08-01 00:00:00+00'
+     AND u.created_at <  TIMESTAMP '2026-09-01 00:00:00+00'
+   LIMIT 1000;
+   ```
+
+   That works only because the rule keeps an empty value. A bare `<>` in that `WHERE`
+   turns the `LEFT JOIN` into an inner join and drops every user with no account.
+
    Run the same count with and without the exclusion lines when they are material, and
    report both numbers. "1,240 accounts, or 1,118 excluding internal, demo and deleted"
    is more useful than either alone.
@@ -139,7 +177,12 @@ pressure. Everything else on this page is shape.
    and let the user promote it. E-6 style name-matching over a free-text field is a
    guess, and a guess that silently deletes rows is the failure C-04 exists to prevent.
 
-5. Keep the grain intact through every join. The classic double-count:
+5. Keep the level intact through every join. Aggregate each lower level up to the level
+   of the number before you join it to that level. With three levels, roll people up
+   to locations, then locations up to companies, unless section 1 gives a direct link.
+   If section 1 says a row can have more than one parent, a join up through the link
+   table repeats the row once per parent, so count it with `COUNT(DISTINCT <id>)` and
+   never sum across parents. The classic double-count:
 
    ```sql
    -- WRONG: one row per user, so MRR is multiplied by seat count
@@ -154,7 +197,11 @@ pressure. Everything else on this page is shape.
    LIMIT 1000;
    ```
 
-   Any `sum` of an account-level column over a user-level row set is a defect.
+   Any `sum` of a higher-level column over a lower-level row set is a defect.
+
+   For "active" at any level above the action level, compute activity where the action
+   happens, drop excluded rows first, then roll up one step at a time per the section 2
+   table. Skipping a step skips its threshold.
 
 6. Per source:
 
@@ -200,10 +247,26 @@ pressure. Everything else on this page is shape.
 
 ## Failure modes
 
-- **B2B account count reported as user count.** 1,240 users across 310 accounts becomes
-  "1,240 customers", and churn, ARPU and cohort retention all inherit a 4x error. Check:
-  run both counts. If `count(DISTINCT users.id)` and `count(DISTINCT accounts.id)` differ,
-  the output must name which one the answer used and why.
+- **A count at the wrong level.** 1,240 users across 310 accounts becomes "1,240
+  customers", and churn, ARPU and cohort retention all inherit a 4x error. With a middle
+  level, such as locations, the errors multiply. Check: run the count at the customer
+  level and at the level your rows are at. If they differ, the output names which level
+  the answer used and why.
+
+- **A lower-level rule applied by joining down.** E-1 is a `users` rule. Joining users
+  into an account count to apply it fans out rows, and "keep the account if any user
+  passes" and "only if every user passes" give different numbers with no error. Check:
+  every rule in the clause has a Level at or above the level counted. The rest are
+  listed as not applicable at this level.
+
+- **A row with no parent dropped when a rule is inherited down.** A user with no account
+  has empty account columns after the `LEFT JOIN`, and a bare `<>` or `NOT IN` drops them.
+  Check: count rows with an empty parent link with and without the inherited rules. The
+  two counts must match.
+
+- **A step skipped in an activity roll-up.** Active accounts computed straight from users
+  ignores a per-location threshold in section 2. Check: the query has one roll-up step
+  per section 2 row.
 
 - **Revenue multiplied by seat count.** `sum(accounts.mrr)` over a row set joined to
   `users`. Check: compare `sum(a.mrr)` from `accounts` alone against the joined result. If

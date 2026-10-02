@@ -161,7 +161,8 @@ hash, Unreadable, Files written.
 6. Note anything unreadable: a permission-denied dataset, a collection that timed out, an
    event with no property definitions. Name it in **Unreadable**. Do not omit it.
 
-7. Update `index.md` to map the new schema file, and append the capture to `log.md`.
+7. Append the capture to `log.md`. Do not add it to `index.md`, which is tracked and public.
+   Its `schema/<source>/schema.md` row already maps it.
 
 ## Failure modes
 

@@ -74,7 +74,7 @@ property, anything that narrows the population.
 - Bad: "Paid customers only."
 
 State the grain here even when it is the default. A reader should not have to infer
-whether a number counts accounts or people.
+which level from `entities.md` section 1 a number counts.
 
 ## Exclusions applied
 

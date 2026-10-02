@@ -58,6 +58,19 @@ bq query --use_legacy_sql=false \
   --max_rows=1000 'SELECT ...'
 ```
 
+## Already connected in your client
+
+A BigQuery connector attached to your Claude desktop or claude.ai account runs
+as you, usually with more than `dataViewer` and `jobUser`, so it is not
+read-scoped and verifies to `partial` at best. Under Claude Code,
+`.claude/hooks/guard.py` blocks write SQL and write-named tools, on the client
+side only. Check the query tool's input fields for a bytes-billed cap. If it has
+none, `maximum_bytes_billed` is not enforceable on that path: say so, prefer
+`INFORMATION_SCHEMA` reads, use a dry-run field if the tool has one, and ask
+before any scan. The
+same gap applies to BigQuery reached through Metabase, see
+`sources/connectors/metabase.md`.
+
 ## Schema introspection
 
 Per dataset. Use `COLUMN_FIELD_PATHS`, not `COLUMNS`. `COLUMN_FIELD_PATHS`

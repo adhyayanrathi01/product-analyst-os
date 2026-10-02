@@ -14,7 +14,7 @@ events show, and what the events cannot show.
 Guarantees:
 
 - `knowledge-base/entities.md` is read before the first query, every time. It defines
-  active, demo, internal, and the account-versus-user grain. Querying without it produces
+  active, demo, internal, and the levels you count at. Querying without it produces
   confidently wrong numbers, so this is a hard precondition rather than a habit.
 - Every exclusion rule that was applied is stated by name in the output. When an exclusion
   materially changes the answer, both numbers are shown: "12,400 signups, or 9,850
@@ -64,7 +64,7 @@ time, and asking is cheap because the queries are already run.
 
 - **Question**: the question as answered, restated precisely
 - **Facts**: each number with the query that produced it and the row count. Every count
-  labeled `events` or `users`, because they are different numbers
+  labeled `events` or the level counted, such as `users`, because they are different numbers
 - **Exclusions applied**: the `confirmed` rules from `entities.md` you applied, by id,
   plus the unfiltered number where an exclusion moved the answer
 - **Interpretation**: one or two lines on what the numbers mean, kept separate from Facts
@@ -94,10 +94,17 @@ pressure. Everything else on this page is shape.
 
 ## Process
 
-1. Read `knowledge-base/entities.md`. First, before anything. If it does not define a rule
+1. Read `knowledge-base/entities.md`. First, before anything. If it does not exist, run
+   `./setup.sh --check`, which copies the blank template into place. If it does not define a rule
    for a case you hit, for example a new internal email domain, do not invent the rule.
    Say what is undefined, say what you assumed instead, put both in the output, and carry
    on. An assumption a reader can see and overrule beats a question that stalls them.
+
+   Note the levels in section 1 and which one "a customer" means, the activity roll-up
+   in section 2, and the Level of each exclusion in section 3. An older file has a
+   two-field grain table: read `Primary grain` as the customer level and "the other
+   grain" as the one level below it. With no Level column, a rule's level is the level
+   whose table it names, and `event` for an event property. Say so in one line.
 
 2. Read `sources/sources.md`. Note the Readiness state and the Last verified date, and say
    both in the output. A source that is not `ready` is queried anyway, with one line
@@ -106,9 +113,11 @@ pressure. Everything else on this page is shape.
 3. Read `schema/<source>/schema.md` for the event names and properties you need. If any
    is missing, that is drift. Run `refresh-schema` and say so. Do not guess a name.
 
-4. Restate the question with a grain. "How many users activated" needs to become "how many
-   distinct `distinct_id` values fired `activated` at least once between two absolute
-   dates, excluding internal and demo".
+4. Restate the question with a level from `entities.md` section 1. "How many users
+   activated" needs to become "how many distinct `distinct_id` values fired `activated`
+   at least once between two absolute dates, excluding internal and demo". If the
+   question is about a level above the person, such as active accounts or active
+   locations, name the section 2 roll-up steps that get you there.
 
 5. Write the query. Keep it one statement, `SELECT` or `WITH`, with a `LIMIT`.
 
@@ -148,6 +157,18 @@ pressure. Everything else on this page is shape.
    `(a AND x IS NULL) OR x > d`, which brings back every row the other rules removed,
    with no error.
 
+   Apply each rule at its own level. Exclusion flows down, never up. `event` rules
+   filter events first. A person-level rule removes that person's events. A rule at a
+   higher level, such as a demo account, removes everything below it, but it needs that
+   level's table. If the table lives in another source, apply it only through an
+   identifier confirmed at that level, per **C-11**. Otherwise list it as not applied
+   and say what it would change. A rule below the level you count never removes the
+   row you count.
+
+   For active at a level above the person, drop excluded events and people first, then
+   roll up one step at a time per the section 2 table. An internal user's event must
+   not make a customer account active.
+
 7. For a funnel, state four things before reporting a rate: the ordered steps, whether the
    order is enforced or any-order, the attribution window, and whether users who entered
    near the end of the range had time to finish. A 7-day funnel measured over a 7-day
@@ -174,6 +195,11 @@ pressure. Everything else on this page is shape.
   example client `signup_completed` against the backend `accounts` row count from
   `analyze-backend`. State the gap as a percentage. If no server-side equivalent exists,
   say the number is a floor, not a count.
+
+- **A higher level made active by an excluded child.** One staff member testing in a
+  customer account fires the qualifying event, and the account counts as active. Check:
+  excluded events and people are removed before the roll-up, and the roll-up has one
+  step per section 2 row. Skipping a step skips its threshold.
 
 - **Event volume reported as user count.** `count()` is fires. `count(DISTINCT distinct_id)`
   is people. A power user firing an event 40 times inflates the first by 40x. Check: every

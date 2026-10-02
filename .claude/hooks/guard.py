@@ -11,10 +11,22 @@ the three gaps those rules leave open:
   3. Bash can run a destructive statement through a database client.
   4. MCP tools (mcp__<server>__<tool>) never matched the old hook matcher, so a
      destructive statement sent through an MCP SQL tool was never inspected.
+  5. A connector already attached to the user's client or account runs as the
+     user, often with an admin role, and exposes write tools (Create-Dashboard,
+     update_question, send_message) next to the read ones. No scoped credential
+     stands behind it, so the tool name is the only thing left to check.
 
-MCP calls are checked only when the tool input carries a SQL-shaped argument.
-The MCP spec's readOnlyHint and destructiveHint are untrusted (AGENTS.md) and
-are never read here.
+MCP calls are checked twice. The tool name is split into words and blocked
+when any word is a write or send verb. Then any SQL-shaped argument must be a
+bounded read. Names are matched only to BLOCK, never to allow, so a server
+that names a write tool innocently gets through: the credential's grants are
+the real control, and this is the backstop for when there are none. The MCP
+spec's readOnlyHint and destructiveHint are untrusted (AGENTS.md) and are never
+read here.
+
+Sends are hard-blocked too, not returned as an "ask". A hook "ask" is not on
+Claude Code's list of prompts that bypassPermissions still shows, so it can
+pass silently in that mode. Exit 2 holds in every mode.
 
 Exit 2 blocks the call and shows stderr to the model. Exit 0 allows.
 Blocking here happens before permission rules evaluate and overrides allow
@@ -60,6 +72,38 @@ READ_SECRET = re.compile(
     r"\b(cat|less|more|head|tail|bat|xxd|od|strings|grep|rg|awk|sed|source|\.)\b[^|;&]*"
     r"(\.env|secrets/|\.pem|id_rsa|credentials\.json)"
 )
+
+# --- MCP write and send tools, by name ----------------------------------------
+# Whole words only, after splitting on - _ . and camelCase, so Get-Events,
+# read_resource, Run-Query and execute_sql pass, and update inside updated_at
+# never matches. ANY word counts, not just the first, so a vendor prefix
+# (chat_send_message) cannot hide the verb. That blocks a few reads whose names
+# carry a verb as a noun (Find-Duplicate-Groups, Run-Experiment-Pre-Launch-
+# Checks). Blocking more is the safe direction. Add a verb, never remove one to
+# let a tool through: the user can run that tool outside this workspace.
+# ponytail: a name blocklist fails open on a write tool named with a verb not
+# listed here. The upgrade is a server-side read-only role, which C-08 asks for.
+WRITE_VERBS = frozenset("""
+    add alter append apply approve archive assign bulk cancel clear close commit
+    connect copy create del delete deploy destroy disable dismiss drop duplicate
+    edit enable erase fill forward grant import insert install invite label launch
+    mark merge modify move mutate patch pause post publish purge push put reject
+    remove rename replace reply reset restore resume revert revoke rm rollback
+    save schedule send set share start stop submit sync toggle transition trash
+    truncate unarchive uninstall unlabel unmark untrash update upload upsert write
+""".split())
+
+
+def tool_words(tool: str):
+    """Words of the tool part of mcp__<server>__<tool>. A server name that
+    itself holds __ pushes more words into the tool part, which only blocks
+    more."""
+    rest = tool[len("mcp__"):]
+    name = rest.split("__", 1)[1] if "__" in rest else rest
+    name = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", name)  # BIUpdate -> BI Update
+    name = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name)  # createIssue -> create Issue
+    return [w.lower() for w in re.split(r"[^A-Za-z0-9]+", name) if w]
+
 
 # --- MCP SQL inspection -----------------------------------------------------
 # Keys that always hold SQL: the value must be a bounded read, full stop.
@@ -242,7 +286,22 @@ def main() -> None:
 
     elif tool.startswith("mcp__"):
         # Deliberately ignores readOnlyHint and destructiveHint. The MCP spec
-        # calls tool annotations untrusted, so the statement is what gets read.
+        # calls tool annotations untrusted, so the name and the statement are
+        # what get read.
+        verbs = sorted(set(tool_words(tool)) & WRITE_VERBS)
+        if verbs:
+            block(
+                f"{tool} looks like a write or a send (`{verbs[0]}` in its name).\n"
+                f"This workspace only reads. A dashboard, metric, cohort, flag or "
+                f"event edit, and any message or post, needs the user's separate "
+                f"explicit approval per action (CHARTER C-02), and a client "
+                f"connector usually runs with the user's full role, so nothing "
+                f"server-side stops it. Do not retry through another tool. If the "
+                f"user wants it, they do it in that tool themselves. For a "
+                f"message, draft the text in reports/ and hand it over.\n"
+                f"If this tool only reads, say so to the user. The guard blocks by "
+                f"name, so it is safe to be wrong in this direction."
+            )
         for key, value, strong in sql_values(args):
             why = sql_problem(value, strong)
             if why:

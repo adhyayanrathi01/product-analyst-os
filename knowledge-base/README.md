@@ -1,8 +1,10 @@
 # knowledge-base
 
-Five files. They hold the definitions the agent is not allowed to invent.
+Five files. They hold the definitions the agent is not allowed to invent. They are yours,
+and they are gitignored, so they never reach a public repo.
 
-Everything here ships blank, as a template. The worked examples describe a fictional
+Their blanks live in `_template/`, and `./setup.sh` copies each one into place the first
+time. It never overwrites a file you filled in. The worked examples describe a fictional
 company called **Nimbus Freight**, which does not exist. They are labelled `EXAMPLE`.
 Delete them as you fill each file in. An example left in place will be read as a fact.
 

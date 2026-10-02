@@ -1,3 +1,5 @@
+> Maintainer file. The development state of the product-analyst-os template itself, moved here from the repo root when workspace files became gitignored. It is not your workspace: yours is the root `task.md`, which `./setup.sh` creates from `_template/task.md`.
+
 # Current task
 
 Read this first if you are picking the project up cold. `log.md` has the full
@@ -6,33 +8,10 @@ the open list.
 
 **Repo:** https://github.com/adhyayanrathi01/product-analyst-os, public, MIT.
 **Local:** `~/Desktop/pm-portfolio/pm interview prep/product-analyst-os`
-**Version:** 0.3.0. **Branch:** `main`.
+**Version:** 0.4.0. **Branch:** `main`.
 
 ---
 
-## First run
-
-**Agents: check this before answering a product question.** If
-`knowledge-base/entities.md` still contains `TODO` in sections 1 to 4, this workspace has
-never been set up. Work on the repo itself does not trigger this. A question about the
-user's product does.
-
-1. Before answering, tell the user in a few plain sentences what this is and what setup
-   takes. Adapt this, do not read it out:
-
-   > This workspace answers product questions from your data, and every number comes with
-   > the query behind it. Right now it does not know your definitions, like what counts as
-   > an active customer or which accounts are your own team, so any number would rest on
-   > my guesses. Setup is about eight questions in plain words and takes 5 to 10 minutes.
-   > You approve the result by running one command. Want to do it now?
-
-2. On yes, run `skills/setup/onboard`. When it finishes, answer the question they asked.
-3. On no, answer anyway on stated assumptions, as `AGENTS.md` already requires. Offer the
-   setup once more at the end of that answer, and then not again this session.
-
-When setup is done, `skills/setup/onboard` replaces this whole section with one line.
-
----
 
 ## What this is
 
@@ -60,8 +39,8 @@ That answer is worse than the one you get after filling in `entities.md`, and it
 
 ```bash
 ./setup.sh --check                     # exit 0
-./evals/test-guardrails.sh             # 33/33
-./evals/test-protection.sh             # 24/24
+./evals/test-guardrails.sh             # 61/61
+./evals/test-protection.sh             # 37/37
 ./evals/check-output.sh --self-test    # 50/50
 ./evals/test-lint-hook.sh              # 7/7
 ```
@@ -124,6 +103,11 @@ eight plain topics. A First run section at the top of this file makes the agent 
 on the first product question. Getting started now leads with it. Both analysis skills
 now parenthesize exclusion rules, fixing an `OR` precedence bug the dry run found.
 
+**v0.4.0.** Workspace files are gitignored, with blanks in `_template/` folders, and this
+file and the dev log moved to `docs/dev/`. Attached client connectors are the first path,
+and the guard blocks MCP write and send tools by name. The definitions file takes any
+number of levels, with exclusions flowing down and never up.
+
 ---
 
 ## Open, and what each needs
@@ -175,6 +159,21 @@ actually recorded. Cosmetic today, misleading later.
 The onboarding interview, the first-run greeting and the new Getting started shipped in
 v0.3.0. The rest of the 2026-10-02 list in `log.md` stays open, ranked there. The
 interview has only been dry-run against the Nimbus fixture, never with a real user.
+
+### Found in v0.4.0, not done
+
+- **A harness tool that runs shell fails open.** A terminal tool exposed over MCP, such as
+  `run_in_terminal`, passes the guard, and its commands skip the Bash checks for `.env`
+  reads and protected-file redirects. Needs its own fix.
+- **No canary for template pollution.** `--check` cannot tell when a blind `git pull`
+  merged user data into `knowledge-base/_template/entities.md`. A check that every
+  knowledge-base template still carries an `EXAMPLE` marker would catch it.
+- **The Nimbus fixture uses the old two-level shape.** Agents can still read it. On an
+  account count, the users rule E-1 is now "not applicable at this level" and acts only
+  through the roll-up, so S-1 may differ slightly from the dry run's numbers. Not re-run.
+- **The name check has false positives,** in the safe direction: `Find-Duplicate-Groups`,
+  `Run-Experiment-Pre-Launch-Checks`, and harness tools like `preview_start`. The block
+  message tells the agent to tell the user.
 
 ### The one that matters most
 

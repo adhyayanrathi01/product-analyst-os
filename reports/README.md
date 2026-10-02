@@ -2,6 +2,10 @@
 
 One file per question answered. The agent writes here without asking.
 
+Everything here except this README and `_template/` is gitignored. A report carries your
+real numbers, so it stays on this machine. To keep reports in git, see the note at the
+top of the workspace block in `.gitignore`.
+
 ## Naming
 
 `reports/YYYY-MM-DD-<topic>.md`

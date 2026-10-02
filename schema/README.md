@@ -4,6 +4,9 @@ One directory per source: `schema/<source>/schema.md`. Captured, never guessed.
 
 `_template/schema.md` is the format. Copy it, do not edit it in place.
 
+Everything here except this README and `_template/` is gitignored. A capture holds your
+real table and column names, so it stays on this machine.
+
 ## Why this exists
 
 `AGENTS.md` says a column that is not in the captured schema is drift, not permission

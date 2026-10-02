@@ -14,7 +14,7 @@ prove the key works, that it is scoped read-only, or that the endpoint answers.
 | Readiness | Meaning |
 |---|---|
 | `blocked` | Not verified yet. Either nothing is connected, or the smoke test has never been run and passed. Querying it is allowed. Say in the output that the source is unverified. |
-| `partial` | Credentials exist and are scoped, but no bounded read has been observed yet, or the last observed read was on a subset of what the source holds. Say so in every output. |
+| `partial` | Credentials exist and are scoped, but no bounded read has been observed yet, or the last observed read was on a subset of what the source holds. Also: a bounded read was observed, but the grant is write-capable (an Amplitude Member role, a header-only scope, or a client connector running with the user's full role). Say so in every output. |
 | `ready` | One bounded read from the connector doc's smoke test was actually run and returned rows. Record the date in the verification column. |
 
 `blocked` means "nobody has proved this reads", not "forbidden". A number from a
@@ -44,11 +44,35 @@ taxonomy cannot be introspected, and the passcode auth has no read-only scope.
 | MongoDB | database | `MDB_MCP_CONNECTION_STRING`, `MDB_MCP_READ_ONLY`, `MONGODB_DATABASE` | DB user with the built-in `read` role on one database, plus `--readOnly` and `MDB_MCP_READ_ONLY=true` | blocked | never | Schema is sample-inferred from 1000 documents, so it is probabilistic, not complete. |
 | Postgres/Supabase | database | `DATABASE_URI`, `SUPABASE_PROJECT_REF`, `SUPABASE_ACCESS_TOKEN` | Dedicated `agent_ro` role whose GRANTs allow SELECT only. Supabase adds `read_only=true` on the MCP URL | blocked | never | `default_transaction_read_only` is a client default, not a security control. Never use `@modelcontextprotocol/server-postgres`. |
 
+## Client connectors
+
+A source can come from a connector already attached to the user's client or account
+(Claude desktop, claude.ai) instead of from `.mcp.json`. `connect-sources` checks for
+one first. Such a row uses the same columns and the same three readiness values:
+
+- **Env vars**: empty. The client holds the session, so there is nothing to export.
+  Leave the cell blank, not `none`: `./setup.sh --check` reads every word in that cell
+  as a variable name and fails a `partial` or `ready` row whose variables are unset.
+- **Read-only mechanism**: starts with `Client connector`, then the user's role in that
+  tool, for example `Client connector, user role Admin. No scoped grant. Write tools
+  blocked by name in .claude/hooks/guard.py, Claude Code only.` Write `role unknown`
+  if the user did not say.
+- **Notes**: `connected at the client, not .mcp.json`, plus the tool-name prefix the
+  session shows, so later skills call the right tools.
+
+Readiness tops out at `partial` unless the role itself is view-only. A client connector
+authenticates as the user, and an admin role is not read-scoped, so C-08 condition 2
+fails whatever the guard blocks. `verify-sources` records that as the blocking
+condition.
+
+No example row is shown here on purpose. `setup.sh` parses every table row in this
+file as a source, so an example row would register a second source.
+
 ## Changing a row
 
 1. Run the smoke test in the connector doc for that source.
 2. If it returns rows, set Readiness and put today's date in the verification
-   column. Name the exact query you ran in the Notes column or in `log.md`.
+   column. Name the exact query you ran in `log.md`, not in the Notes column. This file is tracked, and a query names your tables.
 3. If a credential is rotated or a role changes, set the row back to `blocked`
    and re-run the smoke test. A verification date older than the credential is
    not a verification.

@@ -46,6 +46,33 @@ MCP, Streamable HTTP with OAuth 2.0:
 
 The MCP endpoint requires AI features enabled on the instance.
 
+## Already connected in your client
+
+If a Metabase connector is already attached to your Claude desktop or claude.ai
+account, use it. No `.mcp.json` entry is needed, and `connect-sources` checks for
+one first. Identify it by its tools (`search`, `read_resource`, `execute_sql`,
+`construct_query`) and their descriptions, not by its server name.
+
+It runs as you, with your groups, not with the `agent-readonly` group above. On
+an admin account it carries write tools such as `create_dashboard`,
+`update_question` and `create_collection`, and native SQL is reachable. Under
+Claude Code, `.claude/hooks/guard.py` blocks MCP tools whose names carry a write
+or send verb, and blocks write SQL. That is a client-side check, not a grant. It
+verifies to `partial` unless your own groups are view-only with no native query.
+
+**If the database behind Metabase is BigQuery, there is no spend cap on this
+path.** `AGENTS.md` requires `maximum_bytes_billed` on every BigQuery query, and
+Metabase's SQL tool has no way to set it. The cap is not enforceable here. Say
+that in any output that used this path. What to do instead:
+
+- Prefer metadata reads (`search`, `read_resource`, table and field metadata).
+  They read Metabase's synced metadata and scan nothing in BigQuery.
+- For a question that needs a scan, query BigQuery directly per
+  `sources/connectors/bigquery.md`, where the cap is set.
+- If you must use Metabase SQL, ask the user first. An uncapped scan is a spend,
+  and spend needs approval. The project-level quota in BigQuery is the only
+  backstop.
+
 ## Schema introspection
 
 ```bash

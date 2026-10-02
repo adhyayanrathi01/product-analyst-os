@@ -80,10 +80,13 @@ Three things, in this order.
 
 ## Process
 
-1. **Pick the mode.** Read `knowledge-base/entities.md`. If the section 6 change log has
-   only its `TODO` row, this is a first fill. Otherwise it is fill-gaps: list the rows
-   still marked `TODO` and ask only the topics below that feed them. If nothing is
-   `TODO` in sections 1 to 4, say so and stop.
+1. **Pick the mode.** Read `knowledge-base/entities.md`. If it does not exist, this is a
+   first fill, and the draft starts from `knowledge-base/_template/entities.md`. If the
+   section 6 change log has only its `TODO` row, this is a first fill. Otherwise it is
+   fill-gaps: list the rows still marked `TODO` and ask only the topics below that feed
+   them. If nothing is `TODO` in sections 1 to 4, say so and stop. A filled file in the
+   older shape, with a `Primary grain` row instead of a levels table, stays in that
+   shape in fill-gaps mode. Say once in the summary that the template now lists levels.
 
 2. **Read captured schema.** List `schema/*/schema.md`, skipping `schema/_template/`,
    which holds fictional names. Read each one, including its Notes and Known gaps. Use it
@@ -98,12 +101,14 @@ Three things, in this order.
    offer the schema's event list as a menu in topic 2, it leads the answer.
 
    **Round 1. What you count.**
-   1. When you say "a customer", is that a company account or an individual person? Do
-      you ever need to count the other one, for example seats?
+   1. What levels does your business have, biggest first? For example just account,
+      then user. Or company, then location, then person. Which level is "a customer",
+      and do you ever count another one, for example seats?
    2. What does an active customer actually do? Name the one or two actions that count,
       and anything that should not count on its own, such as logging in. Is a different
-      definition of active used anywhere else, for example on a billing dashboard? For
-      company accounts, does one active person make the whole account active?
+      definition of active used anywhere else, for example on a billing dashboard? If
+      you have more than one level, does one active person make each level above them
+      active, or is there a threshold?
    3. Over what window, for example the last 28 days or a calendar month, and in which
       timezone do you report?
 
@@ -122,16 +127,29 @@ Three things, in this order.
    8. Do your analytics events carry the same account or user id as your database? "Not
       sure" is the most useful honest answer here.
 
-5. **Draft the file.** Keep the section headings and tables of the current file. Drop all
-   other prose, including every teaching block, then add one line under section 3:
-   "How to apply and state these rules: `AGENTS.md`, Handle exclusions honestly."
-   - Section 1 from topic 1. The roll-up is `COUNT(DISTINCT <grain id>)` using the id the
-     user named. If there is one grain, replace the "Both shapes" table with the line
-     `Not applicable. One grain.`
-   - Section 2 from topics 2 and 3. If the user named no second definition, write
+5. **Draft the file.** Keep the section headings and tables of the current file, or of
+   `knowledge-base/_template/entities.md` when there is no current file. Drop all other
+   prose, including every teaching block, then add two lines under section 3: "How to
+   apply and state these rules: `AGENTS.md`, Handle exclusions honestly." and
+   "Exclusion flows down, never up: an excluded row excludes the rows below it, never
+   the row above it."
+   - Section 1 from topic 1. One row per level the user named, biggest first. One level
+     is one row. The top row's parent and link read `none`. Each id column, table and
+     link comes from the user or a schema file, else
+     `TODO: column name, fill after schema capture`. Count from a lower table is
+     `COUNT(DISTINCT <id column>)` using the id the user named. "A customer" means one
+     is the level the user named. If the user described one kind of customer, replace
+     the "More than one hierarchy" table with the line `Not applicable. One hierarchy.`
+   - Section 2 from topics 2 and 3. The action level is the level the user's action
+     belongs to, usually the person. Write one roll-up row per step from that level up
+     to the customer level. An answer like "one active person is enough" applies to
+     every step. A step the user did not answer reads `TODO`. With one level, write
+     `Not applicable. One level.` If the user named no second definition, write
      `None. One definition.` in Named variants. Section 2 has no confidence column, so
      append `(unconfirmed)` inside any cell that is a guess.
-   - Section 3 from topics 4 to 7, one predicate per row. A rule the user said does not
+   - Section 3 from topics 4 to 7, one predicate per row. Each rule's Level is the
+     section 1 level whose table the predicate names, or `event` for an event property.
+     If the table is not in section 1, Level reads `TODO`. A rule the user said does not
      apply reads `Not applicable` with their reason in Notes. A rule with no answer stays
      `TODO`. For E-8 use `(churned_at IS NULL OR churned_at > <window_start>)` with the
      user's column. Split E-9 into two rows, E-9a for current-state questions and E-9b
@@ -155,6 +173,8 @@ Three things, in this order.
    - Every `<>`, `!=`, `NOT IN`, `NOT LIKE`, `NOT ILIKE` and negated regex has an
      `IS NULL` half or uses `IS DISTINCT FROM`, unless a schema note says otherwise.
    - Every predicate containing `OR` is wrapped in parentheses.
+   - Section 1 has one row per level the user named, and section 2 one roll-up row per
+     step between the action level and the customer level.
    - Count what is still open in sections 1 to 4, for the summary.
 
 7. **Show the plain summary and ask for a yes.** If the user corrects something, fix the
@@ -189,6 +209,10 @@ Three things, in this order.
 - **A named column is mistaken for a stated policy.** "Churn is in `churned_at`" says
   where, not whether a churned account counts. Check: a rule is `confirmed` only if the
   user answered the policy half of the topic.
+
+- **Levels collapse into two.** "Brand, then location, then staff" drafted as account and
+  user loses the location, and every location question is then counted at the wrong
+  level. Check: step 6, one section 1 row per level the user named.
 
 - **The template schema is read as real.** `schema/_template/schema.md` holds fictional
   column names. Check: step 2 skips it.

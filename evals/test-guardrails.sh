@@ -67,6 +67,43 @@ check "mcp natural language"     '{"tool_name":"mcp__amplitude__query_chart","to
 check "mcp metric lookup"        '{"tool_name":"mcp__mixpanel__get_metric","tool_input":{"metric":"weekly_active_users","days":30}}' 0
 check "mcp update in a name"     '{"tool_name":"mcp__postgres__execute_sql","tool_input":{"sql":"SELECT last_update, updated_at FROM t WHERE note = '\''update'\'' LIMIT 5"}}' 0
 
+# Must block: write and send tools on a connector attached at the client, which
+# runs with the user's own role. Server names can be opaque ids, so only the
+# tool name is read. Two vendor styles: Title-Kebab and snake_case.
+OPQ="mcp__0a1b2c3d-1111-4222-8333-444455556666"
+check "client Create-Dashboard"  '{"tool_name":"'"$OPQ"'__Create-Dashboard","tool_input":{"title":"Nimbus weekly"}}' 2
+check "client Update-Metric"     '{"tool_name":"'"$OPQ"'__Update-Metric","tool_input":{"id":7}}' 2
+check "client Delete-Cohort"     '{"tool_name":"'"$OPQ"'__Delete-Cohort","tool_input":{"id":7}}' 2
+check "client Create-Feature-Flag" '{"tool_name":"'"$OPQ"'__Create-Feature-Flag","tool_input":{"key":"x"}}' 2
+check "client Bulk-Edit-Properties" '{"tool_name":"'"$OPQ"'__Bulk-Edit-Properties","tool_input":{}}' 2
+check "client Merge-Group"       '{"tool_name":"'"$OPQ"'__Merge-Group","tool_input":{}}' 2
+check "BI create_dashboard"      '{"tool_name":"mcp__metabase__create_dashboard","tool_input":{"name":"x"}}' 2
+check "BI update_question opaque" '{"tool_name":"mcp__9f8e7d6c-aaaa-4bbb-8ccc-ddddeeeeffff__update_question","tool_input":{"id":3}}' 2
+check "BI create_collection"     '{"tool_name":"mcp__metabase__create_collection","tool_input":{"name":"x"}}' 2
+check "camelCase createIssue"    '{"tool_name":"mcp__tracker__createIssue","tool_input":{"summary":"x"}}' 2
+check "upper DELETE_COHORT"      '{"tool_name":"mcp__events__DELETE_COHORT","tool_input":{}}' 2
+check "acronym BIUpdateQuestion" '{"tool_name":"mcp__bi__BIUpdateQuestion","tool_input":{}}' 2
+check "mail send_message"        '{"tool_name":"mcp__mail__send_message","tool_input":{"to":"a@nimbus.example"}}' 2
+check "chat vendor-prefixed send" '{"tool_name":"mcp__chat__chat_send_message","tool_input":{"text":"x"}}' 2
+check "no server segment"        '{"tool_name":"mcp__Create-Dashboard","tool_input":{}}' 2
+
+# Must allow: read tools on the same connectors, and on an unrelated one.
+check "client Run-Query"         '{"tool_name":"'"$OPQ"'__Run-Query","tool_input":{"query":"weekly active users by plan"}}' 0
+check "client Get-Events"        '{"tool_name":"'"$OPQ"'__Get-Events","tool_input":{"project_id":1}}' 0
+check "client List-Properties"   '{"tool_name":"'"$OPQ"'__List-Properties","tool_input":{"event":"shipment_created"}}' 0
+check "client Get-Property-Values" '{"tool_name":"'"$OPQ"'__Get-Property-Values","tool_input":{"property":"plan"}}' 0
+check "client Get-Business-Context" '{"tool_name":"'"$OPQ"'__Get-Business-Context","tool_input":{}}' 0
+check "client Get-Experiment-Setup-Guidance" '{"tool_name":"'"$OPQ"'__Get-Experiment-Setup-Guidance","tool_input":{}}' 0
+check "BI search"                '{"tool_name":"mcp__metabase__search","tool_input":{"query":"shipments"}}' 0
+check "BI read_resource"         '{"tool_name":"mcp__metabase__read_resource","tool_input":{"uri":"metabase://table/12"}}' 0
+check "BI execute_sql bounded"   '{"tool_name":"mcp__9f8e7d6c-aaaa-4bbb-8ccc-ddddeeeeffff__execute_sql","tool_input":{"sql":"SELECT count(*) FROM shipments LIMIT 10"}}' 0
+check "BI construct_query"       '{"tool_name":"mcp__metabase__construct_query","tool_input":{"query":"shipments last week"}}' 0
+check "unrelated mail read"      '{"tool_name":"mcp__mail__search_threads","tool_input":{"query":"invoice"}}' 0
+check "unrelated tracker read"   '{"tool_name":"mcp__tracker__getIssue","tool_input":{"key":"NIM-1"}}' 0
+
+# Must still block: a write statement through a tool whose name passes.
+check "BI execute_sql DELETE"    '{"tool_name":"mcp__9f8e7d6c-aaaa-4bbb-8ccc-ddddeeeeffff__execute_sql","tool_input":{"sql":"DELETE FROM shipments"}}' 2
+
 # Must fail closed on garbage input.
 check "unparseable input"        'not json at all' 2
 

@@ -140,7 +140,7 @@ permissions the agent holds, so least privilege is the actual control.
 rather than the ignored `Write(...)`, `.claude/hooks/guard.py` covers the Write gap plus
 shell paths around the deny rules plus destructive SQL aimed at a data client, and
 `.codex/config.toml` sets both Codex dials. `evals/test-guardrails.sh` proves the guard
-fails when it should, in 33 cases. `CHARTER.md` states plainly that it is a
+fails when it should, in 61 cases. `CHARTER.md` states plainly that it is a
 specification rather than a control.
 
 ## Repos worth reading

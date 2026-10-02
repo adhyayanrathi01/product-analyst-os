@@ -1,3 +1,5 @@
+> Maintainer file. The development history of the product-analyst-os template itself, moved here from the repo root when workspace files became gitignored. It is not your workspace log: yours is the root `log.md`, which `./setup.sh` creates from `_template/log.md`.
+
 # Log
 
 Append-only. What was done, what was assumed, and what is unverified, so a fresh
@@ -457,3 +459,43 @@ which `AGENTS.md` asks for at session start but nothing enforces.
 `skills/AGENTS.md` by hand. The agent's edit was refused by permission settings, which is
 the protection working, so the agent tested the command on a scratch copy and handed it
 over. The reminder in `task.md` is removed.
+
+---
+
+## 2026-10-03, v0.4.0 workspace out of git, client connectors, flexible levels
+
+**Why.** A real-data run was started on 2026-10-03 against a company workspace through
+connectors already attached to the user's account, then stopped by the user before any
+answer was given. Nothing was written. It surfaced three problems the fixtures never did:
+filled definitions would be published by the next push of this public repo, setup assumed
+hand-written MCP config when connectors were already attached, and the definitions file
+had no way to express a level between company and person.
+
+**Built by three parallel workers**, each writing only to its own scratchpad folder. The
+orchestrator applied all three to a throwaway clone together and ran every suite there
+before anything touched this repo: setup check passed, guardrails 61/61, protection 37/37,
+output lint 50/50, report lint 7/7. Every filled workspace path was confirmed ignored with
+`git check-ignore`, and nine templates stayed tracked.
+
+**Spot-checked on real tool names from the session.** The new guard allowed every read
+used that day, including `Run-Query`, `Get-Events`, `read_resource` and a bounded
+`execute_sql`, and blocked `Create-Dashboard`, `Delete-Cohort`, `update_question` and a
+chat `send_message`.
+
+**Spec changes, made on purpose because the user asked for flexible levels.** The contract
+regions of `analyze-backend` and `analyze-frontend` changed "account-versus-user grain" to
+levels. `AGENTS.md` changed in three places: levels wording, creating a missing
+`entities.md` or `task.md` with `./setup.sh --check`, and no longer listing reports in the
+tracked `index.md`, which would have leaked report topics after the gitignore change.
+
+**Unverified.** None of this has run in a live session against a real source. Whether a
+hook "ask" prompts under bypassPermissions is undocumented, which is why sends are hard
+blocks.
+
+**Follow-up, same day: a lighter health check.** The user asked whether users pay for the
+61 and 37 test cases on every query. They do not: the guard runs once per tool call, at
+27 ms, and the suites run only in CI. But `CLAUDE.md` runs `./setup.sh --check` before
+every analysis, and `--check` ran the full 61-case guard suite, 1.6 seconds each time. It
+now runs a three-call smoke test instead, 0.2 seconds. Mutation-tested: a guard with a
+syntax error, a guard that allows everything, and a deleted guard each fail `--check`.
+`CLAUDE.md` did not need to change once the check was this cheap.
