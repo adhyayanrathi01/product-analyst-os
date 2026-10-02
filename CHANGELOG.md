@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.2.2, 2026-10-02
+
+### Fixed
+
+- **The guard now sees MCP tool calls.** Every data query in this repo goes through an
+  MCP tool, and `guard.py` was wired only to Bash, Write, Edit and NotebookEdit, so no
+  query ever reached it. The PreToolUse matcher now includes `mcp__.*`. A SQL argument
+  (`sql`, `sql_query`, `native_query`, plus `query`, `q` and `statement` when the value
+  looks like SQL) is refused unless it is one SELECT or WITH statement with no write
+  keyword, including one buried inside a CTE. Natural-language and metric-name arguments
+  pass untouched. MCP `readOnlyHint` and `destructiveHint` are never consulted.
+- **A missing LIMIT is not blocked**, on purpose. It is a spend concern, not a
+  destruction one, and `maximum_bytes_billed` and the role's statement timeout already
+  bound it. Blocking it refused the introspection SQL in `sources/connectors/`, and would
+  teach the agent to put a LIMIT on an `INFORMATION_SCHEMA` scan, which truncates a
+  schema capture silently. `AGENTS.md` still asks for a LIMIT.
+- **`evals/` is writable except the test scripts.** CHARTER C-12 permits authoring
+  scenarios, fixtures and results. `guard.py` now blocks only `evals/**.sh`, matching
+  `setup.sh`. The guard also fails closed on non-object input and on its own crash.
+- **`check-output.sh` checks application, not just prose.** If Exclusions applied cites
+  rule ids, at least one fenced query must carry a WHERE or filter clause.
+- **A number in Facts with no query anywhere is now a FAIL, not a WARN.** C-05 is the
+  central promise and the check enforcing it now fails.
+- "the last day of August 2026" is no longer flagged as relative. Raw email addresses
+  are now caught, reported by line number so the lint does not reprint them.
+
+### Added
+
+- **Four path-scoped rules** in `.claude/rules/`: schema, connectors, reports and
+  knowledge-base. Each loads when Claude reads a matching file. Each restates `AGENTS.md`
+  and never originates a rule, so Codex loses a reminder and never a rule.
+
+Suites: guardrails 19 to 33, output lint self-test 30 to 50.
+
 ## 0.2.1, 2026-09-16
 
 ### Added

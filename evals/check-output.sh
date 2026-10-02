@@ -7,7 +7,8 @@
 #
 # It checks structure against reports/_template/report.md and the charter clauses that
 # can be checked without judgment: C-05 absolute dates and a query per number, C-09 no
-# secrets, C-10 exclusions stated.
+# secrets and no raw email addresses, C-10 exclusions stated and, when rule ids are
+# cited, at least one fenced query that filters. It cannot match an id to its predicate.
 #
 # It cannot tell you whether the analysis is sound. A clean run here means the shape is
 # right. It says nothing about whether the number is right.
@@ -57,6 +58,20 @@ section_body() { # $1 heading text, $2 file
 
 has_heading() { # $1 heading text, $2 file
   grep -Eq "^#{1,6}[[:space:]]+$1[[:space:]]*$" "$2"
+}
+
+# Text inside fenced code blocks, fence lines excluded. A fence opens on a line that
+# starts with three or more backticks and closes on a line of at least as many
+# backticks and nothing else, so a four-backtick block can hold a three-backtick one.
+fenced_text() { # $1 file
+  awk '
+    function ticks(s,   n) { sub(/^[ \t]*/, "", s); n = 0
+      while (substr(s, n + 1, 1) == "`") n++; return n }
+    function rest(s,   n) { sub(/^[ \t]*/, "", s); n = ticks(s); return substr(s, n + 1) }
+    !inf && ticks($0) >= 3 { inf = 1; fl = ticks($0); next }
+    inf && ticks($0) >= fl && rest($0) ~ /^[ \t]*$/ { inf = 0; next }
+    inf { print }
+  ' "$1"
 }
 
 check_artifact() {
@@ -114,8 +129,12 @@ EOF
 
   # --- 3. No unresolved relative dates in Time range (C-05) -----------------
   if has_heading "Time range" "$file"; then
-    local tr hits
-    tr="$(section_body "Time range" "$file")"
+    local tr hits mon
+    mon='(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?,?[[:space:]]+'
+    # Lowercase, then drop "the last day of August 2026" and similar. A phrase that
+    # carries its own explicit year (and month, if given) is absolute, not relative.
+    tr="$(section_body "Time range" "$file" | tr 'A-Z' 'a-z' | sed -E \
+      "s/(last|past)[[:space:]]+([0-9]+[[:space:]]+)?(day|week|month|quarter|year)s?[[:space:]]+of[[:space:]]+(the[[:space:]]+year[[:space:]]+)?(${mon})?[0-9]{4}//g")"
     hits="$(printf '%s\n' "$tr" | grep -Eio \
       -e 'last[[:space:]]+[0-9]+[[:space:]]+(day|week|month|quarter|year)s?' \
       -e 'past[[:space:]]+[0-9]+[[:space:]]+(day|week|month|quarter|year)s?' \
@@ -136,22 +155,43 @@ EOF
     note "require one, but any date inside Facts still has to be absolute (C-05)."
   fi
 
-  # --- 4. Numbers in Facts should carry a query (C-05), warn only -----------
+  # --- 4. Numbers in Facts must have a query somewhere in the file (C-05) ----
+  # File-wide, not per number: this cannot tell which query produced which number.
+  # It does catch the report with a number and no query at all.
+  local queries
+  queries="$(fenced_text "$file")"
   if has_heading "Facts" "$file"; then
     local facts
     facts="$(section_body "Facts" "$file")"
     if printf '%s' "$facts" | grep -q '[0-9]'; then
-      if grep -q '^[[:space:]]*```' "$file"; then
+      if printf '%s' "$queries" | grep -q '[^[:space:]]'; then
         ok "Facts contains numbers and the file carries at least one fenced query"
       else
-        warn "Facts contains numbers but the file has no fenced code block. Every number carries its query (C-05)."
+        bad "Facts contains numbers but the file has no fenced query block. Every number carries its query (C-05)."
       fi
     else
       ok "Facts contains no numbers, nothing to attach a query to"
     fi
   fi
 
-  # --- 5. No secrets (C-09) -------------------------------------------------
+  # --- 5. Cited exclusion ids need a filtering query (C-10) -------------------
+  # Prose that names E-1..E-7 is not application. If ids are cited, at least one
+  # fenced block must carry a WHERE or filter clause. This does not match which id
+  # maps to which predicate. That is beyond a grep and would false-positive.
+  if has_heading "Exclusions applied" "$file"; then
+    local ids
+    ids="$(section_body "Exclusions applied" "$file" | grep -Eo '\bE-[0-9]+\b' \
+      | sort -t- -k2,2n -u | tr '\n' ' ' | sed 's/ *$//')"
+    if [ -n "$ids" ]; then
+      if printf '%s' "$queries" | grep -Eiq '\b(where|having|filter)\b|\$match|\.find\('; then
+        ok "Exclusions applied cites $ids and a fenced query carries a filter clause"
+      else
+        bad "Exclusions applied cites $ids but no fenced query has a WHERE or filter clause. Naming a rule is not applying it (C-10)."
+      fi
+    fi
+  fi
+
+  # --- 6. No secrets (C-09) -------------------------------------------------
   local secrets
   secrets="$(grep -Eno \
     -e '[a-zA-Z][a-zA-Z0-9+.-]*://[^/[:space:]:@]+:[^[:space:]@]+@' \
@@ -167,6 +207,19 @@ EOF
     printf '%s\n' "$secrets" | sed 's/^/        line /'
     printf '      This is the one finding not to wave through. Rotate the credential if\n'
     printf '      it was ever committed, and refer to it by env var name instead.\n'
+  fi
+
+  # --- 7. No raw email addresses (C-09) -------------------------------------
+  # The local part must start with a letter or digit, so a SQL pattern such as
+  # '%@nimbusfreight.example' (what E-1 looks like in a query) is not an address.
+  # Line numbers only: printing the match would copy the personal data again.
+  local emails
+  emails="$(grep -nE '[A-Za-z0-9][A-Za-z0-9._+-]*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}' \
+    "$file" | cut -d: -f1 | head -5 | tr '\n' ' ' | sed 's/ *$//')"
+  if [ -z "$emails" ]; then
+    ok "no raw email address found"
+  else
+    bad "raw email address found on line(s): $emails. Aggregate or use an opaque id (C-09)."
   fi
 }
 
@@ -240,6 +293,12 @@ self_test() {
     fi
   }
 
+  has_line() { # $1 file, $2 pattern. Capture first: grep -q would SIGPIPE the script.
+    local out
+    out="$("$0" "$1" 2>&1)"
+    printf '%s\n' "$out" | grep -q "$2"
+  }
+
   # Every case below asserts twice: the default advisory run, then --strict. A finding
   # exits 0 by default and 1 under --strict. That difference is the whole point of the
   # flag, so each case states both.
@@ -301,9 +360,62 @@ self_test() {
   printf '\nCalled with %s%s\n' 'api_key=' 'ZmFrZTEyMzQ1' >> "$dir/bad-secret-apikey.md"
   assert "api_key with a value" "$dir/bad-secret-apikey.md" 0 1
 
-  # A number with no fenced block is a warning, not a finding, in either mode.
-  grep -v '^```' "$dir/good.md" | grep -v '^SELECT COUNT' > "$dir/warn-no-query.md"
-  assert "no fenced query only warns" "$dir/warn-no-query.md" 0 0
+  # A number in Facts with no fenced query anywhere is a finding, not a warning. The
+  # exclusions prose here names no ids, so only the C-05 check can fire.
+  grep -v '^```' "$dir/good.md" | grep -v '^SELECT COUNT' \
+    | sed 's/^E-1 internal domains.*/Internal and demo accounts removed./; /^because it is unconfirmed\.$/d' \
+    > "$dir/bad-no-query.md"
+  assert "number with no fenced query anywhere" "$dir/bad-no-query.md" 0 1
+  has_line "$dir/bad-no-query.md" '^FAIL  Facts contains numbers' \
+    && sp=$((sp + 1)) || { sf=$((sf + 1)); echo "SELF-TEST FAIL: no-query case is not a FAIL line"; }
+
+  # Facts with no number needs no query, so the empty file is fine.
+  sed 's/^December 2025 signups: 1204\. Row count: 1\./Signups fell./; /^```/,/^```/d; s/^E-1 internal domains.*/Internal and demo accounts removed./; /^because it is unconfirmed\.$/d' \
+    "$dir/good.md" > "$dir/good-no-numbers.md"
+  assert "no numbers in Facts needs no query" "$dir/good-no-numbers.md" 0 0
+
+  # Exclusion ids cited, and the only query filters nothing.
+  sed "s/^SELECT COUNT.*/SELECT COUNT(*) FROM accounts LIMIT 10;/" \
+    "$dir/good.md" > "$dir/bad-ids-no-filter.md"
+  assert "ids cited, query has no WHERE" "$dir/bad-ids-no-filter.md" 0 1
+  has_line "$dir/bad-ids-no-filter.md" '^FAIL  Exclusions applied cites' \
+    && sp=$((sp + 1)) || { sf=$((sf + 1)); echo "SELF-TEST FAIL: ids-no-filter case is not a FAIL line"; }
+
+  # Exclusion ids cited, and the query carries a filter in a non-SQL block.
+  sed 's/^```sql$/```js/; s/^SELECT COUNT.*/db.accounts.aggregate([{ $match: { is_internal: { $ne: true } } }])/' \
+    "$dir/good.md" > "$dir/good-ids-match.md"
+  assert "ids cited, query has a \$match" "$dir/good-ids-match.md" 0 0
+
+  # No ids cited, prose reason given, unfiltered query: nothing to cross-check.
+  sed "s/^E-1 internal domains.*/No exclusion rules applied, because this is a raw table count used to size a backfill./; /^because it is unconfirmed\.\$/d; s/^SELECT COUNT.*/SELECT COUNT(*) FROM accounts LIMIT 10;/" \
+    "$dir/good.md" > "$dir/good-no-ids.md"
+  assert "no ids cited, unfiltered query" "$dir/good-no-ids.md" 0 0
+
+  # Relative-date fix. A phrase with its own month and year is absolute.
+  sed 's/^2025-12-01 00:00:00 UTC.*/2026-08-01 00:00:00 UTC to the last day of August 2026, inclusive./' \
+    "$dir/good.md" > "$dir/good-last-day-of-august.md"
+  assert "last day of August 2026 is not relative" "$dir/good-last-day-of-august.md" 0 0
+
+  # The same phrase next to a real relative one must still be caught.
+  sed 's/^2025-12-01 00:00:00 UTC.*/The last day of August 2026, then the last 30 days./' \
+    "$dir/good.md" > "$dir/bad-last-day-plus-relative.md"
+  assert "real relative date beside an absolute one" "$dir/bad-last-day-plus-relative.md" 0 1
+
+  # A bare "last day" with no year is still relative.
+  sed 's/^2025-12-01 00:00:00 UTC.*/Through the last day of the month./' \
+    "$dir/good.md" > "$dir/bad-last-day-bare.md"
+  assert "last day with no year is still relative" "$dir/bad-last-day-bare.md" 0 1
+
+  # Raw email address, anywhere in the file.
+  write_good "$dir/bad-email.md"
+  printf '\nTop account owner: jane.doe@acme-freight.com\n' >> "$dir/bad-email.md"
+  assert "raw email address" "$dir/bad-email.md" 0 1
+
+  # The E-1 predicate is not an email address, in prose or inside a query.
+  write_good "$dir/good-e1-pattern.md"
+  printf "\nE-1 clause: users.email NOT ILIKE '%%@nimbusfreight.example'\n" \
+    >> "$dir/good-e1-pattern.md"
+  assert "E-1 style pattern is not an email" "$dir/good-e1-pattern.md" 0 0
 
   # Words that only look like secrets must not trip the check.
   write_good "$dir/good-lookalike.md"

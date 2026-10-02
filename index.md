@@ -38,8 +38,9 @@ Do not preload them.
 | Path | Purpose |
 |---|---|
 | `.claude/settings.json` | Deny and ask rules. Uses `Edit(...)` paths, since `Write(...)` path rules are silently ignored by Claude Code |
-| `.claude/hooks/guard.py` | PreToolUse guard. Covers the `Write` gap, shell reads of `.env`, redirects into protected files, and destructive SQL aimed at a database client |
+| `.claude/hooks/guard.py` | PreToolUse guard. Covers the `Write` gap, shell reads of `.env`, redirects into protected files, and destructive SQL aimed at a database client or sent through an MCP tool |
 | `.claude/hooks/lint-report.sh` | PostToolUse hook. Runs `evals/check-output.sh` after a Write or Edit lands in `reports/*.md` and feeds any FAIL or WARN back to the model as context. Silent on a clean report |
+| `.claude/rules/*.md` | Four path-scoped rules: schema, connectors, reports, knowledge-base. Each loads when Claude reads a matching file and restates `AGENTS.md` briefly. Claude Code only, and safe because `AGENTS.md` still holds every rule |
 | `.codex/config.toml` | Codex `sandbox_mode` and `approval_policy`. Both dials, OS-enforced |
 | `agents/roles.md` | Orchestrator, worker and evaluator as portable contracts, plus the seven-field brief |
 
@@ -101,7 +102,7 @@ You fill these in. The agent reads them and never writes them. It proposes a dif
 | `reports/_template/report.md` | Both report shapes, short and full, with worked examples of each |
 | `reports/YYYY-MM-DD-<topic>.md` | Output, one file per question |
 | `evals/check-output.sh` | Advisory lint: sections for the shape used, absolute dates, exclusions stated, no leaked secrets. Exits 0 on findings, `--strict` to fail a build, `--self-test` proves it works |
-| `evals/test-guardrails.sh` | Proves the PreToolUse guard fails when it should, 19 cases |
+| `evals/test-guardrails.sh` | Proves the PreToolUse guard fails when it should, 33 cases including MCP queries |
 | `evals/test-lint-hook.sh` | Proves the PostToolUse report lint hook stays silent on a clean report and speaks up on a finding |
 
 ## Docs

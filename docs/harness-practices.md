@@ -56,7 +56,10 @@ past the cap is silently dropped.
 **What this repo does:** `index.md` is the map and stays short. Connector docs, schema
 files and knowledge-base files load on demand. `task.md` carries current state and
 `log.md` carries assumptions and what is unverified, so a fresh session can resume
-without the transcript.
+without the transcript. Since v0.2.2, four path-scoped rules in `.claude/rules/` load
+the pitfalls for schema, connectors, reports and the knowledge base when a matching file
+is read. They restate `AGENTS.md` and never originate a rule, so a harness that ignores
+them loses a reminder, never a rule.
 
 The 200-line target is Anthropic's, for Claude Code. No source gives a defensible
 universal token budget, so treat it as directional.
@@ -137,7 +140,7 @@ permissions the agent holds, so least privilege is the actual control.
 rather than the ignored `Write(...)`, `.claude/hooks/guard.py` covers the Write gap plus
 shell paths around the deny rules plus destructive SQL aimed at a data client, and
 `.codex/config.toml` sets both Codex dials. `evals/test-guardrails.sh` proves the guard
-fails when it should, in 19 cases. `CHARTER.md` states plainly that it is a
+fails when it should, in 33 cases. `CHARTER.md` states plainly that it is a
 specification rather than a control.
 
 ## Repos worth reading

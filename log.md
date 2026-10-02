@@ -386,3 +386,37 @@ suite passed, 19 guardrails, 24 protection, 30 output lint, 7 report lint.
 Unverified: the hook has passed its own test harness and a copy-repo install, but it
 has not yet fired inside a live Claude Code session against a real Write or Edit tool
 call. The first live report write is the real test.
+
+---
+
+## 2026-10-02, v0.2.2 MCP guard, checker holes, path-scoped rules
+
+**Built by three parallel workers**, each writing only to its own scratchpad folder. The
+orchestrator owned every shared file. The user installed the protected files by hand,
+because the agent has no write path to `.claude/` or `evals/`. The classifier also
+refused to let the agent author the installer, as self-modification. Both refusals are the
+protection working.
+
+**Overridden.** The guard worker blocked any query without a LIMIT. That refused the
+introspection SQL in two connector docs and would push the agent to truncate schema
+captures. Removed. Every SELECT in `sources/connectors/` now passes the guard: 4 allowed,
+0 blocked.
+
+**Spot-checked, not taken on faith.** The shipped guardrail suite hardcodes its guard
+path, so the worker's claim that the original 19 cases pass against the new guard could
+not be reproduced as described. Redirected by hand: 19 of 19 pass.
+
+**Declined.** The rules worker said Claude Code reads `AGENTS.md` natively as of
+v2.1.277. The memory docs fetched directly on 2026-09-16 say the opposite. Not acted on.
+Check it against current docs before changing `docs/harness-practices.md`.
+
+**Verified after install.** Guardrails 33/33, protection 24/24, output lint 50/50, report
+lint 7/7, `setup.sh --check` passed.
+
+**Usability list, ranked smallest first.** Spell out rule names in reports. Shorten guard
+block messages. Name steps for what they do. Lead Getting started with a quick win. Demo
+mode on the Nimbus fixture. An interview that fills `entities.md`. Setup writes the MCP
+config. Pick one tool from a list. Render reports as shareable pages. Use from chat, not
+only a terminal.
+
+**Unverified.** Neither the MCP matcher nor the rules have fired in a live session.

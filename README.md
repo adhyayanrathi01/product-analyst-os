@@ -168,9 +168,9 @@ enforcement is in the harness:
 - `.claude/hooks/guard.py` covers what settings cannot: Claude Code's path rules do not
   apply to `Write` at all, so a deny rule there is silently ignored. The hook also blocks
   shell paths around the deny rules and any destructive statement aimed at a database
-  client.
+  client, including one sent through an MCP tool.
 - `.codex/config.toml` sets Codex's sandbox and approval policy, which are OS-enforced.
-- `evals/test-guardrails.sh` proves the guard fails when it should, across 19 cases. Run
+- `evals/test-guardrails.sh` proves the guard fails when it should, across 33 cases. Run
   it after touching the hook.
 
 `CHARTER.md` says out loud that it is a specification and not a control. An agent with

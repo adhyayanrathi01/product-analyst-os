@@ -36,9 +36,9 @@ That answer is worse than the one you get after filling in `entities.md`, and it
 
 ```bash
 ./setup.sh --check                     # exit 0
-./evals/test-guardrails.sh             # 19/19
+./evals/test-guardrails.sh             # 33/33
 ./evals/test-protection.sh             # 24/24
-./evals/check-output.sh --self-test    # 30/30
+./evals/check-output.sh --self-test    # 50/50
 ./evals/test-lint-hook.sh              # 7/7
 ```
 
@@ -90,6 +90,11 @@ Success is silent, so the agent stops needing to remember the lint step by hand.
 still a lint, not a gate, and it always exits 0. Wired into `.claude/settings.json` and
 proved by `evals/test-lint-hook.sh`.
 
+**v0.2.2.** The guard now inspects MCP tool calls, which is where every data query
+actually goes, and blocks anything that is not a single read. `evals/` is writable
+except its test scripts. The report lint checks that cited exclusions are applied, and
+a number with no query now fails. Four path-scoped rules load pitfalls on demand.
+
 ---
 
 ## Open, and what each needs
@@ -105,27 +110,23 @@ quiet self-edit shows up in `setup.sh --check`. It guards against an agent weake
 own rules, and there is no self-improvement loop here for it to guard. **Add it the day
 you add one, not before.**
 
-**2. `.claude/rules/` with `paths:` frontmatter.** Would load connector and schema docs
-only when a matching file is read, instead of by convention through `index.md`. Real
-benefit, no urgency. `docs/harness-practices.md` explains the mechanism.
-
 **3. Three `UNVERIFIED` connector facts.** Flagged in place rather than presented as
 confirmed. Confirm against real instances if you use these: Mixpanel Lexicon sub-paths,
 Metabase MCP minimum version and whether an API-key path exists, and whether Codex expands
 `${VAR}` inside `config.toml`.
 
-### Holes in the checker, all advisory since v0.2.0
+### Known limits of the v0.2.2 checks
 
-**4. The exclusions check tests for prose, not application.** A report naming five rule
-ids without applying any of them passes clean. `analyze-backend` already specifies the
-grep that would catch it. Roughly ten lines. **Largest remaining hole.**
+**4. A report built only from a dashboard tile now fails the query check.** `AGENTS.md`
+allows it if the tile is named. No exemption was added, because the word "tile" would
+become a one-word bypass. The finding is advisory by default.
 
-**5. The query check is file-wide and only warns.** A report with a fabricated number and
-no query anywhere passes with exit 0. Verified directly. C-05 is this repo's central
-promise and the check enforcing it does not fail.
+**5. A report citing rule ids only to say they were not applied also fails.** The
+exclusions check cannot tell "applied" from "not applied" in prose.
 
-**6. Minor.** "the last day of August 2026" is flagged as a relative date, a false
-positive. The secret scan misses raw email addresses.
+**6. The path-scoped rules have not been seen loading in a live session.** Frontmatter and
+globs are validated. Whether a Bash `cat` triggers them, rather than the Read tool, is
+unverified.
 
 ### Structural, needs thought rather than typing
 
@@ -133,11 +134,19 @@ positive. The secret scan misses raw email addresses.
 session's root is the parent directory, no settings load and no hook runs. Observed twice
 during the build. `setup.sh --protect` is the mitigation, which is why it exists.
 
-**8. `guard.py` and `.githooks/pre-commit` disagree about `evals/`.** C-12 now permits
-writing there, `guard.py` still blocks it. Pick one.
+**8. `.githooks/pre-commit` does not protect `evals/*.sh`.** `guard.py` and `setup.sh`
+now agree, the commit hook does not cover test scripts. Optional, and widening it means
+more commits need `PAOS_ALLOW_PROTECTED=1`.
 
 **9. `sources/sources.md` last-verified column can drift** from what `verify-sources`
 actually recorded. Cosmetic today, misleading later.
+
+### Usability, next
+
+Ranked in `log.md`, 2026-10-02. The first three together turn the first ten minutes from a
+37-blank form into seeing an answer: rewrite Getting started to lead with a quick win, a
+demo mode on the Nimbus fixture, and an interview that fills `entities.md` and shows the
+result as a diff for approval.
 
 ### The one that matters most
 
