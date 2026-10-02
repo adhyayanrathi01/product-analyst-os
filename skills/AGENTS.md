@@ -7,6 +7,7 @@ single skill.
 
 - Add or configure a source: `setup/connect-sources`
 - Prove a source is readable: `setup/verify-sources`
+- Set up your definitions in a short interview: `setup/onboard`
 - Record a schema the first time: `schema/capture-schema`
 - Check whether a schema changed: `schema/refresh-schema`
 - What users did: `analytics/analyze-frontend`

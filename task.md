@@ -176,10 +176,6 @@ The onboarding interview, the first-run greeting and the new Getting started shi
 v0.3.0. The rest of the 2026-10-02 list in `log.md` stays open, ranked there. The
 interview has only been dry-run against the Nimbus fixture, never with a real user.
 
-`skills/AGENTS.md` does not list `onboard` in "Picking one", because the guard blocks agent
-writes to any file named `AGENTS.md`. One line for the user to add:
-`- Set up definitions in a short interview: setup/onboard`.
-
 ### The one that matters most
 
 **10. Nobody has run this against a real database.** Every check so far is structural or

@@ -452,3 +452,8 @@ them safe at the point of use.
 **Unverified.** The rewritten skill has not been dry-run a second time, and no real user
 has taken the interview. The First run trigger depends on the agent reading `task.md`,
 which `AGENTS.md` asks for at session start but nothing enforces.
+
+**Follow-up, same day.** The user added `setup/onboard` to "Picking one" in
+`skills/AGENTS.md` by hand. The agent's edit was refused by permission settings, which is
+the protection working, so the agent tested the command on a scratch copy and handed it
+over. The reminder in `task.md` is removed.
