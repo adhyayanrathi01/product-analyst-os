@@ -80,3 +80,7 @@ __pycache__/
 
 # MCP config may contain a pasted literal token
 .mcp.json
+
+# Maintainer notes and the original design doc. Kept on this machine, not part of the template.
+/docs/dev/
+/docs/plans/

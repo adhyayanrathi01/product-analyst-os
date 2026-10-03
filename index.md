@@ -113,9 +113,6 @@ You fill these in. They are gitignored, and their blanks live in `knowledge-base
 |---|---|
 | `docs/harness-practices.md` | Agent harness research with citations, and what this repo does about each finding |
 | `docs/connectors-research.md` | Verified connector reality per source, real introspection SQL, drift method, read-only enforcement, and the UNVERIFIED flags |
-| `docs/plans/2026-09-08-product-analyst-os-design.md` | The approved v0.1.0 design and its decisions |
-| `docs/dev/task.md` | Maintainer state for this template repo. Not your workspace |
-| `docs/dev/log.md` | Maintainer history for this template repo. Append-only |
 
 ## Sources registry status
 
