@@ -109,7 +109,8 @@ analysis.
 ## Your data stays out of git
 
 This repo is a public template, and it is also the folder you work in. Your definitions,
-schema captures, reports, `task.md` and `log.md` hold your company's data: internal
+schema captures, reports, source registry (`sources/sources.md`), `task.md` and `log.md`
+hold your company's data: internal
 domains, account ids, table names, real numbers. All of them are gitignored, so a commit
 or a push carries none of it, and neither does a public fork.
 
@@ -120,14 +121,14 @@ the same, and fails if git still tracks one of these files.
 Want your definitions under version control? Use a private repo, never a public fork, and
 delete only the `.gitignore` lines for what you mean to track.
 
-### Upgrading a clone made before 0.4.0
+### Upgrading a clone made before 0.4.2
 
 If you committed filled-in definitions, a plain `git pull` can merge them into the tracked
 templates, and your next push publishes them. Run this instead. Nothing here deletes a file
 on disk.
 
 ```bash
-mkdir -p ../paos-backup && cp -Rp knowledge-base reports schema task.md log.md ../paos-backup/
+mkdir -p ../paos-backup && cp -Rp knowledge-base reports schema sources/sources.md task.md log.md ../paos-backup/
 git fetch origin
 git checkout origin/main -- .gitignore
 git ls-files -ci --exclude-standard -z | xargs -0 git rm -q --cached --

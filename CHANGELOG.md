@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.2, 2026-10-03
+
+**The source registry no longer goes into git.**
+
+### Changed
+
+- **`sources/sources.md` is a workspace file.** The agent writes readiness, verification
+  dates and notes about your sources into it, so it held company details while being
+  tracked in a public repo. Its blank now lives at `sources/_template/sources.md`, and
+  `./setup.sh` copies it into place the same way as the other workspace files.
+- **`docs/dev/` and `docs/plans/` are no longer tracked.** They were the maintainer's notes
+  and the original design doc, not part of the template.
+
+### Upgrading
+
+Follow "Upgrading a clone made before 0.4.2" in the README. A plain `git pull` would
+delete your filled `sources/sources.md`.
+
 ## 0.4.1, 2026-10-03
 
 **A terminal tool can no longer skip the guard.**

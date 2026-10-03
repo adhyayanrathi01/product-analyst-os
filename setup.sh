@@ -26,7 +26,7 @@ SOURCE_KEYS="posthog mixpanel amplitude bigquery metabase mongodb postgres-supab
 # and each has a tracked blank at <dir>/_template/<name>.
 WORKSPACE_FILES="knowledge-base/entities.md knowledge-base/company.md
 knowledge-base/personas.md knowledge-base/metrics.md knowledge-base/glossary.md
-task.md log.md"
+sources/sources.md task.md log.md"
 
 ok()   { printf '  ok       %s\n' "$*"; }
 warn() { printf '  warn     %s\n' "$*"; }
@@ -402,7 +402,7 @@ check_workspace_untracked() {
 check_structure() {
   local fail=0 p key
   sec "Repo structure"
-  for p in AGENTS.md CHARTER.md "$SOURCES_MD" .env.example .gitignore sources/connectors sources/mcp; do
+  for p in AGENTS.md CHARTER.md sources/_template/sources.md .env.example .gitignore sources/connectors sources/mcp; do
     if [ -e "$p" ]; then ok "$p"; else bad "$p"; fail=1; fi
   done
   for key in $SOURCE_KEYS; do

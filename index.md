@@ -62,7 +62,7 @@ You fill these in. They are gitignored, and their blanks live in `knowledge-base
 
 | Path | Description |
 |---|---|
-| `sources/sources.md` | Registry. Readiness per source and last agent-observed verification. "Client connectors" says how to record a connector already attached at the client |
+| `sources/sources.md` | Registry. Readiness per source and last agent-observed verification. Gitignored, created from `sources/_template/sources.md`. "Client connectors" says how to record a connector already attached at the client |
 | `sources/connectors/posthog.md` | Remote MCP, read-only header, event and property definitions API |
 | `sources/connectors/mixpanel.md` | Remote MCP, OAuth. Lexicon REST under-reports, use MCP tools |
 | `sources/connectors/amplitude.md` | Remote MCP. Every role grants read, so read-only needs a Viewer-tier role |

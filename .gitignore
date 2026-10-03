@@ -37,6 +37,7 @@ supabase/.temp/
 /schema/*
 !/schema/README.md
 !/schema/_template/
+/sources/sources.md
 /task.md
 /log.md
 
