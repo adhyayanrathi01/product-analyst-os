@@ -8,7 +8,7 @@ the open list.
 
 **Repo:** https://github.com/adhyayanrathi01/product-analyst-os, public, MIT.
 **Local:** `~/Desktop/pm-portfolio/pm interview prep/product-analyst-os`
-**Version:** 0.4.0. **Branch:** `main`.
+**Version:** 0.4.1. **Branch:** `main`.
 
 ---
 
@@ -39,7 +39,7 @@ That answer is worse than the one you get after filling in `entities.md`, and it
 
 ```bash
 ./setup.sh --check                     # exit 0
-./evals/test-guardrails.sh             # 61/61
+./evals/test-guardrails.sh             # 67/67
 ./evals/test-protection.sh             # 37/37
 ./evals/check-output.sh --self-test    # 50/50
 ./evals/test-lint-hook.sh              # 7/7
@@ -162,9 +162,6 @@ interview has only been dry-run against the Nimbus fixture, never with a real us
 
 ### Found in v0.4.0, not done
 
-- **A harness tool that runs shell fails open.** A terminal tool exposed over MCP, such as
-  `run_in_terminal`, passes the guard, and its commands skip the Bash checks for `.env`
-  reads and protected-file redirects. Needs its own fix.
 - **No canary for template pollution.** `--check` cannot tell when a blind `git pull`
   merged user data into `knowledge-base/_template/entities.md`. A check that every
   knowledge-base template still carries an `EXAMPLE` marker would catch it.

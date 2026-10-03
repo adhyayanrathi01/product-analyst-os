@@ -215,7 +215,7 @@ enforcement is in the harness:
   carries a write or send verb, such as `Create-Dashboard` or `send_message`, because a
   connector attached to your account runs with your full role.
 - `.codex/config.toml` sets Codex's sandbox and approval policy, which are OS-enforced.
-- `evals/test-guardrails.sh` proves the guard fails when it should, across 61 cases. Run
+- `evals/test-guardrails.sh` proves the guard fails when it should, across 67 cases. Run
   it after touching the hook.
 
 `CHARTER.md` says out loud that it is a specification and not a control. An agent with

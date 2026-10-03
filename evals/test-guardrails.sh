@@ -104,6 +104,14 @@ check "unrelated tracker read"   '{"tool_name":"mcp__tracker__getIssue","tool_in
 # Must still block: a write statement through a tool whose name passes.
 check "BI execute_sql DELETE"    '{"tool_name":"mcp__9f8e7d6c-aaaa-4bbb-8ccc-ddddeeeeffff__execute_sql","tool_input":{"sql":"DELETE FROM shipments"}}' 2
 
+# Must block: shell run through an MCP tool gets the same checks as Bash.
+check "terminal cat .env"        '{"tool_name":"mcp__terminal__run_in_terminal","tool_input":{"command":"cat .env"}}' 2
+check "terminal redirect CHARTER" '{"tool_name":"mcp__terminal__run_in_terminal","tool_input":{"command":"echo x > CHARTER.md"}}' 2
+check "terminal tee kb"          '{"tool_name":"mcp__terminal__run_in_terminal","tool_input":{"command":"echo x | tee knowledge-base/entities.md"}}' 2
+check "terminal psql DROP"       '{"tool_name":"mcp__terminal__run_in_terminal","tool_input":{"command":"psql -c \"DROP TABLE users\""}}' 2
+check "remote exec nested cmd"   '{"tool_name":"mcp__box__exec","tool_input":{"opts":{"cmd":"cat secrets/prod.json"}}}' 2
+check "terminal ls"              '{"tool_name":"mcp__terminal__run_in_terminal","tool_input":{"command":"ls reports"}}' 0
+
 # Must fail closed on garbage input.
 check "unparseable input"        'not json at all' 2
 

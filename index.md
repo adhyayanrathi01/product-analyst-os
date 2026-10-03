@@ -104,7 +104,7 @@ You fill these in. They are gitignored, and their blanks live in `knowledge-base
 | `reports/_template/report.md` | Both report shapes, short and full, with worked examples of each |
 | `reports/YYYY-MM-DD-<topic>.md` | Output, one file per question. Gitignored |
 | `evals/check-output.sh` | Advisory lint: sections for the shape used, absolute dates, exclusions stated, no leaked secrets. Exits 0 on findings, `--strict` to fail a build, `--self-test` proves it works |
-| `evals/test-guardrails.sh` | Proves the PreToolUse guard fails when it should, 61 cases including MCP queries and MCP write tools |
+| `evals/test-guardrails.sh` | Proves the PreToolUse guard fails when it should, 67 cases including MCP queries, MCP write tools and MCP shell tools |
 | `evals/test-lint-hook.sh` | Proves the PostToolUse report lint hook stays silent on a clean report and speaks up on a finding |
 
 ## Docs

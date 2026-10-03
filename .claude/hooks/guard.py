@@ -15,6 +15,8 @@ the three gaps those rules leave open:
      user, often with an admin role, and exposes write tools (Create-Dashboard,
      update_question, send_message) next to the read ones. No scoped credential
      stands behind it, so the tool name is the only thing left to check.
+  6. An MCP tool that runs shell, such as a terminal tab, skipped the Bash
+     checks. Its command argument now gets the same checks.
 
 MCP calls are checked twice. The tool name is split into words and blocked
 when any word is a write or send verb. Then any SQL-shaped argument must be a
@@ -219,6 +221,42 @@ def sql_values(obj, strong=False, key=""):
         yield key, obj, strong
 
 
+# Argument keys that hold a shell command line on an MCP tool. A harness or
+# connector tool that runs shell (a terminal tab, a remote exec) gets the same
+# checks as Bash, so it is not a way around them.
+SHELL_KEYS = ("command", "cmd", "script", "shell_command")
+
+
+def shell_values(obj, key=""):
+    """Yield every string under a SHELL_KEYS key, at any depth."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            yield from shell_values(v, str(k).lower())
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from shell_values(v, key)
+    elif isinstance(obj, str) and key in SHELL_KEYS:
+        yield obj
+
+
+def shell_problem(cmd: str):
+    """Return why this shell command is refused, or None."""
+    if READ_SECRET.search(cmd):
+        return ("This reads a credentials file. Refer to secrets by environment-"
+                "variable name only, never by value (CHARTER C-09).")
+    # Shell redirection into a protected path.
+    for prot in PROTECTED:
+        if re.search(r"(>>?|tee)\s+\.?/?" + re.escape(prot), cmd):
+            return f"This writes to the protected path {prot} through the shell."
+    if EVAL_SCRIPT_REDIRECT.search(cmd):
+        return "This writes to an evals/ check script through the shell (CHARTER C-12)."
+    if DB_CLIENT.search(cmd) and DESTRUCTIVE.search(cmd):
+        return ("This runs a write statement against a data source. Every query is "
+                "a read (CHARTER C-02). If the user genuinely wants a write, they "
+                "run it themselves. Do not offer a workaround.")
+    return None
+
+
 def block(reason: str) -> None:
     print(f"BLOCKED by .claude/hooks/guard.py\n\n{reason}", file=sys.stderr)
     sys.exit(2)
@@ -262,27 +300,9 @@ def main() -> None:
                 block(f"{path} holds credentials. Never write or read secret files.")
 
     elif tool == "Bash":
-        cmd = str(args.get("command", ""))
-
-        if READ_SECRET.search(cmd):
-            block(
-                "This reads a credentials file. Refer to secrets by environment-"
-                "variable name only, never by value (CHARTER C-09)."
-            )
-
-        # Shell redirection into a protected path.
-        for prot in PROTECTED:
-            if re.search(r"(>>?|tee)\s+\.?/?" + re.escape(prot), cmd):
-                block(f"This writes to the protected path {prot} through the shell.")
-        if EVAL_SCRIPT_REDIRECT.search(cmd):
-            block("This writes to an evals/ check script through the shell (CHARTER C-12).")
-
-        if DB_CLIENT.search(cmd) and DESTRUCTIVE.search(cmd):
-            block(
-                "This runs a write statement against a data source. Every query is "
-                "a read (CHARTER C-02). If the user genuinely wants a write, they "
-                "run it themselves. Do not offer a workaround."
-            )
+        why = shell_problem(str(args.get("command", "")))
+        if why:
+            block(why)
 
     elif tool.startswith("mcp__"):
         # Deliberately ignores readOnlyHint and destructiveHint. The MCP spec
@@ -302,6 +322,10 @@ def main() -> None:
                 f"If this tool only reads, say so to the user. The guard blocks by "
                 f"name, so it is safe to be wrong in this direction."
             )
+        for cmd in shell_values(args):
+            why = shell_problem(cmd)
+            if why:
+                block(f"{tool} runs shell. {why}")
         for key, value, strong in sql_values(args):
             why = sql_problem(value, strong)
             if why:

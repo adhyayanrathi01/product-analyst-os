@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.1, 2026-10-03
+
+**A terminal tool can no longer skip the guard.**
+
+### Fixed
+
+- **MCP tools that run shell get the Bash checks.** A terminal tab exposed over MCP, such
+  as `run_in_terminal`, passed the guard because only the `Bash` tool's command was
+  inspected. It could read `.env`, redirect into `CHARTER.md` or `knowledge-base/`, or
+  send a `DROP` through `psql`. Any MCP argument named `command`, `cmd`, `script` or
+  `shell_command`, at any depth, now gets the same checks as Bash. Guard tests go from 61
+  to 67 cases. Five of the six new cases fail on 0.4.0.
+
 ## 0.4.0, 2026-10-03
 
 **Your company's data no longer goes into git, attached connectors just work, and the

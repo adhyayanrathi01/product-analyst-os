@@ -499,3 +499,14 @@ every analysis, and `--check` ran the full 61-case guard suite, 1.6 seconds each
 now runs a three-call smoke test instead, 0.2 seconds. Mutation-tested: a guard with a
 syntax error, a guard that allows everything, and a deleted guard each fail `--check`.
 `CLAUDE.md` did not need to change once the check was this cheap.
+
+## 2026-10-03, v0.4.1: terminal tools get the Bash checks
+
+The guard only inspected the `Bash` tool's `command`. `mcp__terminal__run_in_terminal`
+matched the `mcp__.*` hook matcher, had no write verb in its name and no SQL key, so it
+passed with no shell checks at all, and it runs outside the sandbox. Fix: the Bash checks
+moved into `shell_problem(cmd)`, called for Bash and for every MCP string argument under
+`command`, `cmd`, `script` or `shell_command` at any depth. Root cause, not a terminal
+special case, so an unknown remote exec tool is covered too. Verified: 0.4.0 fails 5 of
+the 6 new cases, 0.4.1 passes 67/67, about 20 ms a call. Not covered: a shell tool whose
+command key has some other name. Add the key to `SHELL_KEYS` when one shows up.
